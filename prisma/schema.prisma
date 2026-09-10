@@ -1,0 +1,404 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+  ADVERTISER
+}
+
+enum ConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  EXPIRED
+  ERROR
+}
+
+enum SalesScope {
+  CAMPAIGN
+  ADSET
+}
+
+enum SalesTrend {
+  UP
+  DOWN
+  STABLE
+}
+
+enum SalesBreakdownKind {
+  COUNTRY
+  GENDER
+  AGE
+}
+
+enum BudgetAlertKind {
+  NO_INTEREST
+  PRICE_TOO_HIGH
+  EARLY_WATCH
+  PRODUCT_CAP
+  WEAK_ROAS
+  STALE_SALES
+}
+
+enum BudgetAlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+enum CreativeKind {
+  IMAGE
+  VIDEO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          Role      @default(ADVERTISER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdById   String?
+  createdBy     User?     @relation("UserCreatedBy", fields: [createdById], references: [id])
+  createdUsers     User[]            @relation("UserCreatedBy")
+  creativeUploads  CreativeUpload[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("users")
+}
+
+model MetaAppConfig {
+  id               String   @id @default(cuid())
+  appId            String   @default("")
+  appSecret        String   @default("") @db.Text
+  graphVersion     String   @default("v22.0")
+  oauthRedirectUri String?  @db.Text
+  updatedById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("meta_app_configs")
+}
+
+model MetaOAuthState {
+  id        String   @id @default(cuid())
+  state     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("meta_oauth_states")
+}
+
+model MetaConnection {
+  id             String           @id @default(cuid())
+  metaUserId     String
+  metaUserName   String?
+  accessToken    String           @db.Text
+  tokenExpiresAt DateTime?
+  status         ConnectionStatus @default(CONNECTED)
+  scopes         String?          @db.Text
+  connectedById  String
+  lastSyncedAt   DateTime?
+  errorMessage   String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  adAccounts     MetaAdAccount[]
+
+  @@map("meta_connections")
+}
+
+model MetaAdAccount {
+  id            String         @id @default(cuid())
+  connectionId  String
+  connection    MetaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  metaAccountId String         @unique
+  name          String
+  accountStatus Int?
+  currency      String?
+  timezoneName  String?
+  businessName  String?
+  amountSpent   String?
+  isActive      Boolean        @default(true)
+  lastSyncedAt  DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  campaigns     MetaCampaign[]
+
+  @@map("meta_ad_accounts")
+}
+
+model MetaCampaign {
+  id              String        @id @default(cuid())
+  accountId       String
+  account         MetaAdAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  metaCampaignId  String        @unique
+  name            String
+  status          String?
+  effectiveStatus String?
+  objective       String?
+  dailyBudget     String?
+  lifetimeBudget  String?
+  spend           String?
+  impressions     String?
+  clicks          String?
+  ctr             String?
+  startTime       DateTime?
+  stopTime        DateTime?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  adSets          MetaAdSet[]
+
+  @@index([accountId])
+  @@map("meta_campaigns")
+}
+
+model MetaAdSet {
+  id                String       @id @default(cuid())
+  campaignId        String
+  campaign          MetaCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  metaAdSetId       String       @unique
+  name              String
+  status            String?
+  effectiveStatus   String?
+  optimizationGoal  String?
+  dailyBudget       String?
+  lifetimeBudget    String?
+  spend             String?
+  impressions       String?
+  clicks            String?
+  ctr               String?
+  startTime         DateTime?
+  endTime           DateTime?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  ads               MetaAd[]
+
+  @@index([campaignId])
+  @@map("meta_ad_sets")
+}
+
+model MetaAd {
+  id              String    @id @default(cuid())
+  adSetId         String
+  adSet           MetaAdSet @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+  metaAdId        String    @unique
+  name            String
+  status          String?
+  effectiveStatus String?
+  thumbnailUrl    String?   @db.Text
+  headline        String?   @db.Text
+  body            String?   @db.Text
+  videoId         String?
+  mediaType       String?
+  spend           String?
+  impressions     String?
+  clicks          String?
+  ctr             String?
+  lastSyncedAt    DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([adSetId])
+  @@map("meta_ads")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String?
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SalesDailyStat {
+  id            String     @id @default(cuid())
+  scope         SalesScope
+  metaId        String
+  scopeId       String?
+  parentMetaId  String?
+  date          String
+  purchases     Int        @default(0)
+  purchaseValue String?
+  spend         String?
+  clicks        Int        @default(0)
+  impressions   Int        @default(0)
+  syncedAt      DateTime
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([scope, metaId, date])
+  @@index([scope, metaId])
+  @@index([parentMetaId, date])
+  @@map("sales_daily_stats")
+}
+
+model SalesScore {
+  id                  String     @id @default(cuid())
+  scope               SalesScope
+  metaId              String
+  scopeId             String?
+  sellProbability     Float
+  previousProbability Float?
+  probabilityDelta    Float?
+  conversionRate      Float
+  hitRate             Float
+  consistency         Float
+  salesDays           Int
+  activeDays          Int
+  totalPurchases      Int
+  avgDailyPurchases   Float
+  peakPurchases       Int
+  peakDate            String?
+  trend               SalesTrend
+  windowSince         String?
+  windowUntil         String?
+  lastSyncedAt        DateTime?
+  productsSyncedAt    DateTime?
+  lastAnalyzedAt      DateTime
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  @@unique([scope, metaId])
+  @@map("sales_scores")
+}
+
+model SalesScoreSnapshot {
+  id              String     @id @default(cuid())
+  scope           SalesScope
+  metaId          String
+  sellProbability Float
+  totalPurchases  Int
+  conversionRate  Float
+  capturedAt      DateTime   @default(now())
+
+  @@index([scope, metaId, capturedAt])
+  @@map("sales_score_snapshots")
+}
+
+model SalesProductStat {
+  id            String     @id @default(cuid())
+  scope         SalesScope
+  parentMetaId  String
+  productId     String
+  retailerId    String?
+  name          String?
+  brand         String?
+  imageUrl      String?    @db.Text
+  productUrl    String?    @db.Text
+  price         String?
+  purchases     Int        @default(0)
+  purchaseValue String?
+  spend         String?
+  clicks        Int        @default(0)
+  impressions   Int        @default(0)
+  windowSince   String
+  windowUntil   String
+  syncedAt      DateTime
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([scope, parentMetaId, productId, windowSince, windowUntil])
+  @@index([scope, parentMetaId])
+  @@map("sales_product_stats")
+}
+
+model SalesBreakdownStat {
+  id            String             @id @default(cuid())
+  scope         SalesScope
+  parentMetaId  String
+  productId     String             @default("")
+  kind          SalesBreakdownKind
+  key           String
+  purchases     Int                @default(0)
+  purchaseValue String?
+  spend         String?
+  windowSince   String
+  windowUntil   String
+  syncedAt      DateTime
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([scope, parentMetaId, windowSince, windowUntil])
+  @@index([parentMetaId, productId])
+  @@map("sales_breakdown_stats")
+}
+
+model BudgetGuardSettings {
+  id                    String   @id @default(cuid())
+  enabled               Boolean  @default(true)
+  maxProductSales       Int      @default(30)
+  maxAdSetSpend         Float    @default(5)
+  minClicksToJudge      Int      @default(8)
+  minImpressionsToJudge Int      @default(400)
+  highCtrPercent        Float    @default(1.5)
+  earlyWarningRatio     Float    @default(0.7)
+  minRoasToKeep         Float    @default(1)
+  firstReviewDays       Int      @default(5)
+  hardCloseDays         Int      @default(7)
+  minSalesToKeep        Int      @default(1)
+  extraSalesToConfirm   Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("budget_guard_settings")
+}
+
+model BudgetGuardAlert {
+  id             String              @id @default(cuid())
+  kind           BudgetAlertKind
+  severity       BudgetAlertSeverity
+  metaAdSetId    String
+  adSetName      String
+  campaignId     String?
+  campaignMetaId String?
+  productId      String              @default("")
+  productName    String?
+  title          String
+  message        String              @db.Text
+  recommendation String              @db.Text
+  spend          Float               @default(0)
+  purchases      Int                 @default(0)
+  clicks         Int                 @default(0)
+  impressions    Int                 @default(0)
+  ctr            Float               @default(0)
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([kind, metaAdSetId, productId])
+  @@index([resolvedAt, severity])
+  @@map("budget_guard_alerts")
+}
+
+model CreativeUpload {
+  id          String       @id @default(cuid())
+  name        String
+  kind        CreativeKind
+  filePath    String
+  mimeType    String
+  fileSize    Int
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime     @default(now())
+
+  @@index([createdById])
+  @@map("creative_uploads")
+}

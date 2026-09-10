@@ -268,7 +268,8 @@ export async function listOwnProductHints() {
 }
 
 const RESEARCH_PROMPT = `Sen e-ticaret pazar analistisin. Türkçe yaz.
-siteEvidence.prices dizisi, verdiğimiz rakip sitesinden AZ ÖNCE çekilmiş doğrulanmış fiyatlardır.
+siteEvidence.prices dizisi, verdiğimiz rakip sitesinin KENDİ arama motorundan AZ ÖNCE çekilmiş doğrulanmış fiyatlardır.
+siteEvidence.search.template o sitenin tespit edilen arama adresidir (ör. /Arama?1&kelime=).
 O satıcı / o URL için başka fiyat UYDURMA. siteEvidence.prices varsa bunları prices listesinin en üstüne koy, verified=true yaz.
 siteEvidence.prices boşsa o site için price=null ve note="sitede bu ürüne ait net fiyat bulunamadı" yaz; ezber veya eski arama sonucu kullanma.
 Diğer pazaryeri fiyatları yalnızca kaynak URL ile birlikte ve gerçekten görüldüyse eklenebilir.

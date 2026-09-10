@@ -151,11 +151,13 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
           Rakip fiyatı ve Meta reklamı — kamuya açık kaynaklardan
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Groq Compound internette mağaza ve pazaryeri fiyatlarını arar. Facebook /
-          Instagram reklamları resmi Meta Reklam Kütüphanesi API’si ve Ad Library
-          web taramasıyla bakılır. Ticari reklam arşivi AB/İngiltere teslimatında
-          daha doludur; TR’de sonuç sınırlı olabilir. Gizli hesap veya kapalı
-          stok fiyatı çekilmez.
+          Kaynak sitede önce arama formu ve parametresi (ör.{" "}
+          <code className="rounded bg-white/70 px-1">/Arama?1&kelime=</code>)
+          tespit edilir, fiyat o sonuç sayfasından okunur. Groq Compound diğer
+          pazaryerlerine bakar. Facebook / Instagram reklamları resmi Meta
+          Reklam Kütüphanesi API’si ve Ad Library web taramasıyla bakılır.
+          Ticari reklam arşivi AB/İngiltere teslimatında daha doludur; TR’de
+          sonuç sınırlı olabilir. Gizli hesap veya kapalı stok fiyatı çekilmez.
         </p>
       </section>
 

@@ -10,6 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { DateRangePicker } from "@/components/campaigns/date-range-picker";
+import { AiBriefCard } from "@/components/dashboard/ai-brief-card";
 import { RankChart } from "@/components/dashboard/rank-chart";
 import { TrendChart } from "@/components/dashboard/trend-chart";
 import { ProbabilityRing } from "@/components/creatives/probability-ring";
@@ -40,7 +41,11 @@ function insightClass(tone: DashboardPayload["insight"]["tone"]) {
   }
 }
 
-export function DashboardBoard() {
+export function DashboardBoard({
+  canManageSettings = false,
+}: {
+  canManageSettings?: boolean;
+}) {
   const [range, setRange] = useState<DateRangeValue>(() =>
     resolveDateRange("last_30d"),
   );
@@ -95,6 +100,8 @@ export function DashboardBoard() {
       {error ? (
         <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
       ) : null}
+
+      <AiBriefCard range={range} canManageSettings={canManageSettings} />
 
       {data ? (
         <section className={`rounded-3xl border p-6 ${insightClass(data.insight.tone)}`}>

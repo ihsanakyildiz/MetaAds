@@ -1,6 +1,8 @@
 import { Header } from "@/components/layout/header";
+import { AiSettings } from "@/app/(panel)/settings/ai-settings";
 import { BudgetGuardSettings } from "@/app/(panel)/settings/budget-guard-settings";
 import { MetaSettings } from "@/app/(panel)/settings/meta-settings";
+import { getAiStatus } from "@/lib/ai";
 import { requirePermission } from "@/lib/auth";
 import { getBudgetGuardSettings } from "@/lib/budget-guard";
 import { maskSecret } from "@/lib/crypto";
@@ -16,7 +18,7 @@ export default async function SettingsPage({
   await requirePermission(PERMISSIONS.SETTINGS_VIEW);
 
   const params = await searchParams;
-  const [config, connection, redirectUri, budgetGuard] = await Promise.all([
+  const [config, connection, redirectUri, budgetGuard, ai] = await Promise.all([
     prisma.metaAppConfig.findFirst({
       orderBy: { updatedAt: "desc" },
     }),
@@ -30,16 +32,18 @@ export default async function SettingsPage({
     }),
     resolveOAuthRedirectUri(),
     getBudgetGuardSettings(),
+    getAiStatus(),
   ]);
 
   return (
     <>
       <Header
         title="Ayarlar"
-        description="Meta köprüsü, bütçe koruma kuralları ve sistem yapılandırması"
+        description="Meta köprüsü, yapay zeka, bütçe koruma kuralları ve sistem yapılandırması"
       />
       <main className="flex-1 overflow-y-auto p-8">
         <div className="mx-auto max-w-6xl space-y-6">
+        <AiSettings initial={ai} />
         <BudgetGuardSettings initial={budgetGuard} />
         <MetaSettings
           redirectUri={redirectUri}

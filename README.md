@@ -66,6 +66,25 @@ Tarih aralığına göre:
 
 Veri `GET /api/dashboard` üzerinden gelir; hesaplar karışık para birimindeyse panel bunu işaretler.
 
+Üstte **Yapay zeka analisti** kartı, aynı dönem sayılarını ücretsiz Groq modeline gönderip kapat / ölçekle / kreatif aksiyonları üretir. Anahtar yoksa kart sessizce yönlendirir; skor motorunun yerini almaz.
+
+### Yapay zeka (ücretsiz)
+
+Bütçe olmadığı için varsayılan sağlayıcı [Groq](https://console.groq.com/keys) ve model `llama-3.3-70b-versatile`. Kart istemez, günde ~1000 istek yeter. Kota dolarsa `llama-3.1-8b-instant` denenir.
+
+Google Gemini de seçilebilir; 2026 ücretsiz kotası Flash modellerinde çok daha dardır (~20 istek/gün), bu yüzden önerilmez.
+
+Anahtar Ayarlar’dan (şifreli veritabanı) veya `.env` ile verilir:
+
+```env
+GROQ_API_KEY=""
+GEMINI_API_KEY=""
+AI_PROVIDER="groq"
+AI_MODEL=""
+```
+
+Modele yalnızca toplanmış KPI, kampanya/set adları ve uyarı özetleri gider. Meta token, şifre veya kullanıcı e-postası gitmez. Aynı tarih aralığı 20 dakika önbellekte tutulur.
+
 ### Reklam hesapları (`/accounts`)
 
 OAuth sonrası gelen Meta reklam hesapları. Hesap → kampanya → reklam seti → reklam sayfalarına inilir. Her seviyede performans, satış grafikleri, ürün kırılımları ve (yetki varsa) oluştur / düzenle formları vardır.
@@ -196,6 +215,10 @@ APP_URL="http://localhost:3003"
 META_GRAPH_VERSION="v22.0"
 CLOSE_SECRET=""
 CLOSE_SECRET_HASH=""
+GROQ_API_KEY=""
+GEMINI_API_KEY=""
+AI_PROVIDER="groq"
+AI_MODEL=""
 ```
 
 MySQL’de `metaads` veritabanını oluşturun, sonra:
@@ -256,7 +279,16 @@ pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-`pm2 startup` bir hata değildir. systemd kaydı için ekrandaki `sudo env PATH=...` satırını **bir kez** çalıştırın. Bu komut diğer projelerin portunu değiştirmez; yeniden başlatınca `pm2 save` ile kayıtlı tüm süreçler (alchatol, sastimim, metaads vb.) geri gelir.
+Paylaşımlı hostingde `ihsanproje` çoğu zaman **sudoers’ta yoktur**. `pm2 startup` bu yüzden parola doğru olsa da reddedilir. Kalıcılık için systemd yerine kullanıcı crontab’ı yeterlidir; diğer projelerin portuna dokunmaz, `pm2 save` ile kayıtlı süreçleri (`alchatol`, `sastimim`, `metaads` vb.) geri yükler:
+
+```bash
+chmod +x scripts/pm2-resurrect.sh
+pm2 save
+(crontab -l 2>/dev/null | grep -v pm2-resurrect.sh; echo "@reboot /home/ihsanproje/web/metaads.ihsanakyildiz.com.tr/apps/MetaAds/scripts/pm2-resurrect.sh") | crontab -
+crontab -l
+```
+
+Sunucu sahibinin root erişimi varsa alternatif: o hesabın `pm2 startup systemd -u ihsanproje --hp /home/ihsanproje` komutunu çalıştırması.
 
 Yapmayın: `pm2 delete all`, `pm2 kill`, `pm2 restart all` (diğer siteleri de etkiler).
 

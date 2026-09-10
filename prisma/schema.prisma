@@ -402,3 +402,21 @@ model CreativeUpload {
   @@index([createdById])
   @@map("creative_uploads")
 }
+
+enum AiProvider {
+  GROQ
+  GEMINI
+}
+
+model AiSettings {
+  id          String     @id @default(cuid())
+  provider    AiProvider @default(GROQ)
+  model       String     @default("llama-3.3-70b-versatile")
+  apiKey      String     @default("") @db.Text
+  enabled     Boolean    @default(true)
+  updatedById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("ai_settings")
+}

@@ -1,7 +1,7 @@
 const CALLBACK_PATH = "/api/meta/oauth/callback";
 
 export function defaultOAuthRedirectUri() {
-  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(
+  const appUrl = (process.env.APP_URL ?? "http://localhost:3003").replace(
     /\/+$/,
     "",
   );

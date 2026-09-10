@@ -192,7 +192,7 @@ npm install
 DATABASE_URL="mysql://root:@localhost:3306/metaads"
 SESSION_SECRET="64-karakter-hex"
 ENCRYPTION_KEY="64-karakter-hex"
-APP_URL="http://localhost:3000"
+APP_URL="http://localhost:3003"
 META_GRAPH_VERSION="v22.0"
 CLOSE_SECRET=""
 CLOSE_SECRET_HASH=""
@@ -207,7 +207,9 @@ npm run db:seed
 npm run dev
 ```
 
-Tarayıcı: [http://localhost:3000](http://localhost:3000)
+Uygulama **3003** portunda dinler. Tarayıcı: [http://localhost:3003](http://localhost:3003)
+
+Canlıda Nginx / reverse proxy `https://metaads.ihsanakyildiz.com.tr` trafiğini `127.0.0.1:3003` adresine iletir. `APP_URL` o zaman `https://metaads.ihsanakyildiz.com.tr` olur (port yazılmaz); `npm start` yine 3003’te dinler.
 
 Tohum kullanıcılar (`prisma/seed.ts`):
 
@@ -235,8 +237,8 @@ Tohum kullanıcılar (`prisma/seed.ts`):
 
 | Komut | İş |
 | --- | --- |
-| `npm run dev` | Geliştirme sunucusu |
-| `npm run build` / `npm start` | Üretim derlemesi ve çalıştırma |
+| `npm run dev` | Geliştirme sunucusu (`:3003`) |
+| `npm run build` / `npm start` | Üretim derlemesi ve çalıştırma (`:3003`) |
 | `npm run db:push` | Şemayı MySQL’e uygula |
 | `npm run db:seed` | Örnek kullanıcıları yaz |
 | `npm run db:studio` | Prisma Studio |

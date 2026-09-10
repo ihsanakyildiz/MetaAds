@@ -472,6 +472,109 @@ async function completeGemini(
   return { text, model: config.model };
 }
 
+function searchCountryName(code: string) {
+  const normalized = code.trim().toUpperCase();
+
+  switch (normalized) {
+    case "TR":
+      return "turkey";
+    case "GB":
+    case "UK":
+      return "united kingdom";
+    case "DE":
+      return "germany";
+    case "US":
+      return "united states";
+    default:
+      return "turkey";
+  }
+}
+
+export async function completeWebResearch(
+  system: string,
+  user: string,
+  country = "TR",
+) {
+  const resolved = await resolveAiConfig();
+
+  if (!resolved) {
+    throw new Error("Yapay zeka anahtarı tanımlı değil.");
+  }
+
+  if (resolved.provider !== "GROQ") {
+    return completeJson(
+      system,
+      `${user}\nNot: Canlı web araması yalnızca Groq Compound ile çalışır.`,
+      resolved,
+    );
+  }
+
+  const models = ["groq/compound", "groq/compound-mini"] as const;
+
+  for (const [index, model] of models.entries()) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resolved.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        search_settings: {
+          country: searchCountryName(country),
+        },
+        compound_custom: {
+          tools: {
+            enabled_tools: ["web_search", "visit_website"],
+          },
+        },
+      }),
+      cache: "no-store",
+    });
+
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { message?: string } | string;
+      choices?: Array<{
+        message?: {
+          content?: string | Array<{ text?: string }>;
+          reasoning?: string;
+        };
+      }>;
+    } | null;
+
+    if (!response.ok) {
+      if (index < models.length - 1) {
+        continue;
+      }
+
+      throw new Error(groqErrorMessage(payload, response.status));
+    }
+
+    const text = groqMessageText(payload ?? {});
+
+    if (!text) {
+      if (index < models.length - 1) {
+        continue;
+      }
+
+      throw new Error("Web araştırması boş döndü.");
+    }
+
+    return {
+      data: extractJsonObject(text),
+      provider: resolved.provider,
+      model,
+    };
+  }
+
+  throw new Error("Web araştırması başarısız.");
+}
+
 export async function completeJson(
   system: string,
   user: string,

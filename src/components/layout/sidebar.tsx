@@ -14,6 +14,7 @@ import {
   Settings,
   Shield,
   Layers3,
+  Radar,
   WalletCards,
 } from "lucide-react";
 import {
@@ -63,6 +64,12 @@ const NAV = [
     label: "Kreatif öneriler",
     icon: Images,
     permission: PERMISSIONS.CREATIVES_VIEW,
+  },
+  {
+    href: "/competitors",
+    label: "Rakip analizi",
+    icon: Radar,
+    permission: PERMISSIONS.COMPETITORS_VIEW,
   },
   {
     href: "/users",

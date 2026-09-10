@@ -420,3 +420,41 @@ model AiSettings {
 
   @@map("ai_settings")
 }
+
+enum CompetitorKind {
+  COMPANY
+  PRODUCT
+}
+
+model CompetitorWatch {
+  id          String         @id @default(cuid())
+  kind        CompetitorKind
+  name        String
+  query       String
+  website     String?
+  pageId      String?
+  country     String         @default("TR")
+  notes       String?        @db.Text
+  enabled     Boolean        @default(true)
+  createdById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  reports     CompetitorReport[]
+
+  @@index([kind, updatedAt])
+  @@map("competitor_watches")
+}
+
+model CompetitorReport {
+  id          String          @id @default(cuid())
+  watchId     String
+  watch       CompetitorWatch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+  headline    String
+  summary     String          @db.Text
+  payload     String          @db.Text
+  sourceCount Int             @default(0)
+  createdAt   DateTime        @default(now())
+
+  @@index([watchId, createdAt])
+  @@map("competitor_reports")
+}

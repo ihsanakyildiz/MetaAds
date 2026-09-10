@@ -109,6 +109,10 @@ Yayındaki reklam kreatiflerini (görsel / video) parmak izine göre gruplar. Re
 
 Yönetici henüz yayında olmayan görsel/video yükleyebilir (`public/uploads/creatives/`). Yüklenen dosya, aynı türdeki geçmiş kreatiflerin ortalamasıyla **tahmini** skor alır; güven düşüktür, öneri “küçük bütçeyle test”tir. Yükleme boyutu üst sınırı 24 MB; proxy gövde limiti 32 MB.
 
+### Rakip analizi (`/competitors`)
+
+Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. Groq Compound kamuya açık sitelerde güncel fiyat arar; Meta bağlıysa resmi [Reklam Kütüphanesi](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) (`ads_archive`) Facebook / Instagram reklamlarını tarar. Ticari reklam arşivi AB/İngiltere teslimatında daha doludur. Gizli stok veya kapalı hesap fiyatı çekilmez.
+
 ### Kullanıcılar (`/users`)
 
 Yalnız yönetici. Hesap açma, rol değiştirme, pasife alma.

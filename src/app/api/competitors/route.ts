@@ -7,6 +7,15 @@ import {
   listOwnProductHints,
 } from "@/lib/competitors";
 import { PERMISSIONS } from "@/lib/permissions";
+import type { SearchEngineId } from "@/lib/search-engines-types";
+
+const engineSchema = z.enum([
+  "google",
+  "google_shopping",
+  "bing",
+  "yandex",
+  "duckduckgo",
+]);
 
 const createSchema = z.object({
   kind: z.enum(["COMPANY", "PRODUCT"]),
@@ -14,6 +23,7 @@ const createSchema = z.object({
   query: z.string().trim().max(200).optional(),
   website: z.string().trim().max(400).optional(),
   searchTemplate: z.string().trim().max(500).optional(),
+  searchEngines: z.array(engineSchema).max(8).optional(),
   pageId: z.string().trim().max(40).optional(),
   country: z.string().trim().max(4).optional(),
   notes: z.string().trim().max(1000).optional(),
@@ -56,6 +66,7 @@ export async function POST(request: Request) {
     query: parsed.data.query || parsed.data.name,
     website: parsed.data.website,
     searchTemplate: parsed.data.searchTemplate,
+    searchEngines: parsed.data.searchEngines as SearchEngineId[] | undefined,
     pageId: parsed.data.pageId,
     country: parsed.data.country,
     notes: parsed.data.notes,

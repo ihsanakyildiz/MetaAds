@@ -10,6 +10,18 @@ import { PERMISSIONS } from "@/lib/permissions";
 const updateSchema = z.object({
   website: z.string().trim().max(400).optional(),
   searchTemplate: z.string().trim().max(500).optional(),
+  searchEngines: z
+    .array(
+      z.enum([
+        "google",
+        "google_shopping",
+        "bing",
+        "yandex",
+        "duckduckgo",
+      ]),
+    )
+    .max(8)
+    .optional(),
 });
 
 export async function PATCH(

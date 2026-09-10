@@ -8,8 +8,15 @@ import type {
   CompetitorSource,
   CompetitorWatchView,
 } from "@/lib/competitors-types";
-import { collectSitePrices, type PagePrice } from "@/lib/competitor-page";
+import { collectSitePrices, type PagePrice, type SiteEvidence } from "@/lib/competitor-page";
 import { searchAdLibrary } from "@/lib/meta-ad-library";
+import { collectMarketPrices } from "@/lib/search-engines";
+import {
+  isSearchEngineHost,
+  parseSearchEngines,
+  serializeSearchEngines,
+  type SearchEngineId,
+} from "@/lib/search-engines-types";
 import { prisma } from "@/lib/prisma";
 
 function asString(value: unknown, fallback = "") {
@@ -54,6 +61,7 @@ function asPrices(value: unknown): CompetitorPrice[] {
         currency: asString(row.currency) || null,
         url: asString(row.url) || null,
         note: asString(row.note),
+        engine: asString(row.engine) || null,
         verified: row.verified === true,
       } satisfies CompetitorPrice,
     ];
@@ -171,6 +179,7 @@ function toView(
     query: string;
     website: string | null;
     searchTemplate: string | null;
+    searchEngines: string | null;
     pageId: string | null;
     country: string;
     notes: string | null;
@@ -197,6 +206,7 @@ function toView(
     query: watch.query,
     website: watch.website,
     searchTemplate: watch.searchTemplate,
+    searchEngines: parseSearchEngines(watch.searchEngines),
     pageId: watch.pageId,
     country: watch.country,
     notes: watch.notes,
@@ -226,6 +236,7 @@ export async function createCompetitorWatch(input: {
   query: string;
   website?: string;
   searchTemplate?: string;
+  searchEngines?: SearchEngineId[];
   pageId?: string;
   country?: string;
   notes?: string;
@@ -238,6 +249,7 @@ export async function createCompetitorWatch(input: {
       query: (input.query || input.name).trim(),
       website: input.website?.trim() || null,
       searchTemplate: input.searchTemplate?.trim() || null,
+      searchEngines: serializeSearchEngines(input.searchEngines ?? []),
       pageId: input.pageId?.trim() || null,
       country: (input.country || "TR").trim().toUpperCase(),
       notes: input.notes?.trim() || null,
@@ -254,6 +266,7 @@ export async function updateCompetitorWatch(
   input: {
     website?: string;
     searchTemplate?: string;
+    searchEngines?: SearchEngineId[];
   },
 ) {
   const row = await prisma.competitorWatch.update({
@@ -261,6 +274,9 @@ export async function updateCompetitorWatch(
     data: {
       website: input.website?.trim() || null,
       searchTemplate: input.searchTemplate?.trim() || null,
+      ...(input.searchEngines
+        ? { searchEngines: serializeSearchEngines(input.searchEngines) }
+        : {}),
     },
     include: {
       reports: {
@@ -296,18 +312,18 @@ export async function listOwnProductHints() {
 }
 
 const RESEARCH_PROMPT = `Sen e-ticaret pazar analistisin. Türkçe yaz.
-Mesajdaki ilk http(s) adresini visit_website ile aç; o kaynak mağazanın kendi arama sonucudur.
-siteEvidence.prices doluysa bunları prices listesinin en üstüne koy, verified=true yaz; o satıcı için başka fiyat uydurma.
-siteEvidence.prices boş ve siteEvidence.blocked=true ise ilk adresi sen aç, gördüğün satış fiyatını yaz.
-siteEvidence.prices boş ve blocked=false ise o site için price=null yaz; ezber veya eski sonuç kullanma.
-Diğer pazaryeri fiyatları yalnızca gerçekten görülen kaynak URL ile eklenebilir.
+marketEvidence.prices arama motorlarında bulunan satıcı siteleri ve fiyatlarıdır. Bunları prices listesine koy.
+siteEvidence.prices belirli bir mağazadan okunan fiyatlardır; varsa en üste al, verified=true yaz.
+Arama motoru (Google, Bing, Yandex, DuckDuckGo) satıcı değildir; satıcı ürünü satan mağaza sitesidir.
+Görmediğin fiyatı uydurma. min / typical / max değerlerini listedeki fiyatlardan hesapla.
+Hangi sitede daha ucuz / pahalı olduğunu özetle.
 Yanıt yalnızca JSON:
 {
   "headline":"",
   "summary":"",
   "tone":"success"|"warning"|"accent"|"neutral",
   "priceRange":{"min":0,"max":0,"typical":0,"currency":"TRY"},
-  "prices":[{"seller":"","product":"","price":0,"currency":"TRY","url":"","note":"","verified":true}],
+  "prices":[{"seller":"","product":"","price":0,"currency":"TRY","url":"","engine":"google","note":"","verified":true}],
   "ads":[{"platform":"facebook"|"instagram"|"meta"|"web","advertiser":"","message":"","offer":"","url":"","active":true}],
   "threats":[""],
   "opportunities":[""],
@@ -438,18 +454,57 @@ function applyVerifiedPrices(
   const extras = insight.prices.filter((row) => hostOf(row.url) !== host);
   insight.prices = [...verifiedRows, ...extras];
 
+  refreshPriceRange(insight, verified[0]?.currency ?? insight.priceRange.currency);
+}
+
+function refreshPriceRange(insight: CompetitorInsight, currency?: string | null) {
   const amounts = insight.prices
     .map((row) => row.price)
     .filter((value): value is number => value !== null);
-  if (amounts.length > 0) {
-    const sorted = [...amounts].sort((left, right) => left - right);
-    insight.priceRange = {
-      min: sorted[0] ?? null,
-      max: sorted[sorted.length - 1] ?? null,
-      typical: sorted[Math.floor(sorted.length / 2)] ?? null,
-      currency: verified[0]?.currency ?? insight.priceRange.currency,
-    };
+  if (amounts.length === 0) {
+    return;
   }
+
+  const sorted = [...amounts].sort((left, right) => left - right);
+  insight.priceRange = {
+    min: sorted[0] ?? null,
+    max: sorted[sorted.length - 1] ?? null,
+    typical: sorted[Math.floor(sorted.length / 2)] ?? null,
+    currency: currency || insight.priceRange.currency || "TRY",
+  };
+}
+
+function mergePriceLists(...lists: CompetitorPrice[][]) {
+  const seen = new Set<string>();
+  const merged: CompetitorPrice[] = [];
+
+  for (const list of lists) {
+    for (const row of list) {
+      if (isSearchEngineHost(row.url)) {
+        continue;
+      }
+
+      const key = `${hostOf(row.url)}|${row.seller}|${row.price ?? "x"}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(row);
+    }
+  }
+
+  return merged.slice(0, 16);
+}
+
+function emptySiteEvidence(note: string): SiteEvidence {
+  return {
+    pages: [],
+    prices: [],
+    note,
+    search: null,
+    searchUrl: null,
+    blocked: false,
+  };
 }
 
 export async function analyzeCompetitorWatch(id: string) {
@@ -461,79 +516,119 @@ export async function analyzeCompetitorWatch(id: string) {
     throw new Error("Takip kaydı bulunamadı.");
   }
 
-  const [library, ownProducts, fetched] = await Promise.all([
+  const query = watch.query || watch.name;
+  const engines = parseSearchEngines(watch.searchEngines);
+  const shopWebsite = isSearchEngineHost(watch.website) ? null : watch.website;
+  const shopTemplate = isSearchEngineHost(watch.searchTemplate)
+    ? null
+    : watch.searchTemplate;
+  const shouldScrapeShop = Boolean(shopWebsite || shopTemplate);
+
+  const [library, ownProducts, fetched, market] = await Promise.all([
     searchAdLibrary({
-      query: watch.query || watch.name,
+      query,
       country: watch.country,
       pageId: watch.pageId,
     }),
     listOwnProductHints(),
-    collectSitePrices({
-      website: watch.website,
-      searchTemplate: watch.searchTemplate,
-      query: watch.query || watch.name,
-      sellerName: watch.name,
+    shouldScrapeShop
+      ? collectSitePrices({
+          website: shopWebsite,
+          searchTemplate: shopTemplate,
+          query,
+          sellerName: watch.name,
+        })
+      : Promise.resolve(
+          emptySiteEvidence(
+            "Mağaza adresi yok veya arama motoru girildi; fiyatlar arama motoru taramasından alınacak.",
+          ),
+        ),
+    collectMarketPrices({
+      query,
+      country: watch.country,
+      engines,
     }),
   ]);
-  const siteEvidence = await fillMissingSitePrices(fetched, {
-    query: watch.query || watch.name,
-    sellerName: watch.name,
-    country: watch.country,
-  });
+  const siteEvidence = shouldScrapeShop
+    ? await fillMissingSitePrices(fetched, {
+        query,
+        sellerName: watch.name,
+        country: watch.country,
+      })
+    : fetched;
 
   const result = await completeWebResearch(
     RESEARCH_PROMPT,
-    [
-      siteEvidence.searchUrl
-        ? `Önce şu adresi visit_website ile aç:\n${siteEvidence.searchUrl}`
-        : "Kaynak arama adresi yok.",
-      JSON.stringify({
-        task: "Canlı rakip fiyat ve reklam taraması",
-        watch: {
-          kind: watch.kind,
-          name: watch.name,
-          query: watch.query,
-          website: watch.website,
-          searchTemplate: watch.searchTemplate,
-          pageId: watch.pageId,
-          country: watch.country,
-          notes: watch.notes,
-        },
-        siteEvidence: {
-          ...siteEvidence,
-          pages: siteEvidence.pages.map((page) => ({
-            title: page.title,
-            status: page.status,
-          })),
-        },
-        ownTopProducts: ownProducts.slice(0, 8),
-        officialAdLibrary: library.hits.slice(0, 10),
-        libraryNote: library.note,
-      }),
-    ].join("\n\n"),
+    JSON.stringify({
+      task: "Arama motorlarında pazar fiyat taraması",
+      watch: {
+        kind: watch.kind,
+        name: watch.name,
+        query: watch.query,
+        website: shopWebsite,
+        searchTemplate: shopTemplate,
+        searchEngines: engines,
+        pageId: watch.pageId,
+        country: watch.country,
+        notes: watch.notes,
+      },
+      marketEvidence: market,
+      siteEvidence: {
+        ...siteEvidence,
+        pages: siteEvidence.pages.map((page) => ({
+          title: page.title,
+          status: page.status,
+        })),
+      },
+      ownTopProducts: ownProducts.slice(0, 8),
+      officialAdLibrary: library.hits.slice(0, 10),
+      libraryNote: library.note,
+    }),
     watch.country,
+    ["web_search", "visit_website"],
   );
 
   const insight = parseInsight(
     result.data,
     result.model,
-    [library.note, siteEvidence.note].filter(Boolean).join(" "),
+    [library.note, market.note, siteEvidence.note].filter(Boolean).join(" "),
   );
   applyVerifiedPrices(
     insight,
     siteEvidence.prices,
     watch.name,
-    watch.website,
+    shopWebsite,
     siteEvidence.blocked,
   );
+  insight.prices = mergePriceLists(
+    siteEvidence.prices.map((price) => ({
+      seller: watch.name,
+      product: price.product,
+      price: price.amount,
+      currency: price.currency,
+      url: price.url,
+      note: "Kaynak siteden anlık okundu.",
+      verified: true,
+    })),
+    market.prices,
+    insight.prices,
+  );
+  refreshPriceRange(
+    insight,
+    siteEvidence.prices[0]?.currency ??
+      market.prices[0]?.currency ??
+      insight.priceRange.currency,
+  );
 
-  for (const price of siteEvidence.prices) {
-    if (!insight.sources.some((source) => source.url === price.url)) {
-      insight.sources.unshift({
-        title: price.product || watch.name,
-        url: price.url,
-      });
+  for (const price of [...siteEvidence.prices, ...market.prices]) {
+    const url = price.url;
+    if (!url || insight.sources.some((source) => source.url === url)) {
+      continue;
     }
+    insight.sources.unshift({
+      title: price.product || watch.name,
+      url,
+    });
   }
 
   if (library.hits.length && insight.ads.length === 0) {

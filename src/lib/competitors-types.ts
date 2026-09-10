@@ -1,3 +1,5 @@
+import type { SearchEngineId } from "@/lib/search-engines-types";
+
 export type CompetitorKind = "COMPANY" | "PRODUCT";
 
 export type CompetitorPrice = {
@@ -7,6 +9,7 @@ export type CompetitorPrice = {
   currency: string | null;
   url: string | null;
   note: string;
+  engine?: string | null;
   verified?: boolean;
 };
 
@@ -51,6 +54,7 @@ export type CompetitorWatchView = {
   query: string;
   website: string | null;
   searchTemplate: string | null;
+  searchEngines: SearchEngineId[];
   pageId: string | null;
   country: string;
   notes: string | null;

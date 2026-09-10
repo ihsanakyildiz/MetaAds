@@ -10,6 +10,12 @@ import {
   type CompetitorWatchView,
 } from "@/lib/competitors-types";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import {
+  DEFAULT_SEARCH_ENGINES,
+  SEARCH_ENGINE_IDS,
+  searchEngineLabel,
+  type SearchEngineId,
+} from "@/lib/search-engines-types";
 
 type ProductHint = {
   name: string;
@@ -28,6 +34,12 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
   const [searchTemplate, setSearchTemplate] = useState("");
   const [editWebsite, setEditWebsite] = useState("");
   const [editSearchTemplate, setEditSearchTemplate] = useState("");
+  const [searchEngines, setSearchEngines] = useState<SearchEngineId[]>(
+    DEFAULT_SEARCH_ENGINES,
+  );
+  const [editSearchEngines, setEditSearchEngines] = useState<SearchEngineId[]>(
+    DEFAULT_SEARCH_ENGINES,
+  );
   const [pageId, setPageId] = useState("");
   const [country, setCountry] = useState("TR");
   const [notes, setNotes] = useState("");
@@ -66,7 +78,13 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
   useEffect(() => {
     setEditWebsite(selected?.website ?? "");
     setEditSearchTemplate(selected?.searchTemplate ?? "");
-  }, [selected?.id, selected?.website, selected?.searchTemplate]);
+    setEditSearchEngines(selected?.searchEngines ?? DEFAULT_SEARCH_ENGINES);
+  }, [
+    selected?.id,
+    selected?.website,
+    selected?.searchTemplate,
+    selected?.searchEngines,
+  ]);
 
   async function createWatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -83,6 +101,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
         query: query || name,
         website,
         searchTemplate,
+        searchEngines,
         pageId,
         country,
         notes,
@@ -102,6 +121,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
     setQuery("");
     setWebsite("");
     setSearchTemplate("");
+    setSearchEngines(DEFAULT_SEARCH_ENGINES);
     setPageId("");
     setNotes("");
     setItems((current) => [payload, ...current]);
@@ -122,6 +142,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
       body: JSON.stringify({
         website: editWebsite,
         searchTemplate: editSearchTemplate,
+        searchEngines: editSearchEngines,
       }),
     });
     const payload = (await response.json().catch(() => null)) as
@@ -192,15 +213,15 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
           Rakip fiyatı ve Meta reklamı — kamuya açık kaynaklardan
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Sitede bir arama yapıp adres çubuğundaki linki “Site arama adresi”
-          alanına yapıştırın (ör.{" "}
+          Ürün ifadesi seçilen arama motorlarında taranır; hangi sitede kaça
+          satıldığı listelenir ve en düşük / tipik / en yüksek fiyat çıkarılır.
+          İsterseniz ayrıca tek bir rakip mağazanın kendi arama adresini
+          girebilirsiniz (ör.{" "}
           <code className="rounded bg-white/70 px-1">
             https://magaza.ornek/arama?q=
           </code>
-          ). Sistem arama ifadesini o parametreye yazar. Sunucu sayfayı
-          açamazsa Groq Compound aynı adresi ziyaret edip fiyatı okur.
-          Facebook / Instagram reklamları resmi Meta Reklam Kütüphanesi API’si
-          ve Ad Library web taramasıyla bakılır.
+          ). Arama motoru adresini “Site” alanına yazmayın. Facebook /
+          Instagram reklamları resmi Meta Reklam Kütüphanesi API’si ile bakılır.
         </p>
       </section>
 
@@ -249,14 +270,23 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                     className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                   />
                 </label>
+                <EngineChecks
+                  value={searchEngines}
+                  onChange={setSearchEngines}
+                />
                 <label className="block text-sm">
-                  <span className="mb-1.5 block font-medium">Site (isteğe bağlı)</span>
+                  <span className="mb-1.5 block font-medium">
+                    Rakip mağaza (isteğe bağlı)
+                  </span>
                   <input
                     value={website}
                     onChange={(event) => setWebsite(event.target.value)}
-                    placeholder="https://"
+                    placeholder="https://magaza.ornek"
                     className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                   />
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Yalnızca tek bir satıcı sitesi. Arama motoru adresi yazmayın.
+                  </span>
                 </label>
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-medium">
@@ -411,38 +441,46 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
               </div>
 
               {canManage ? (
-                <div className="mt-5 grid gap-3 rounded-xl border border-dashed border-line p-4 sm:grid-cols-[1fr_1fr_auto]">
-                  <label className="block text-sm">
-                    <span className="mb-1.5 block font-medium">Site</span>
-                    <input
-                      value={editWebsite}
-                      onChange={(event) => setEditWebsite(event.target.value)}
-                      placeholder="https://"
-                      className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="mb-1.5 block font-medium">
-                      Site arama adresi
-                    </span>
-                    <input
-                      value={editSearchTemplate}
-                      onChange={(event) =>
-                        setEditSearchTemplate(event.target.value)
-                      }
-                      placeholder="https://magaza.ornek/arama?q="
-                      className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
-                    />
-                  </label>
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      disabled={saving}
-                      onClick={() => void saveSearchSettings()}
-                      className="w-full rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/40 disabled:opacity-60"
-                    >
-                      {saving ? "Kaydediliyor..." : "Adresi kaydet"}
-                    </button>
+                <div className="mt-5 space-y-3 rounded-xl border border-dashed border-line p-4">
+                  <EngineChecks
+                    value={editSearchEngines}
+                    onChange={setEditSearchEngines}
+                  />
+                  <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block font-medium">
+                        Rakip mağaza
+                      </span>
+                      <input
+                        value={editWebsite}
+                        onChange={(event) => setEditWebsite(event.target.value)}
+                        placeholder="https://magaza.ornek"
+                        className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
+                      />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1.5 block font-medium">
+                        Mağaza arama adresi
+                      </span>
+                      <input
+                        value={editSearchTemplate}
+                        onChange={(event) =>
+                          setEditSearchTemplate(event.target.value)
+                        }
+                        placeholder="https://magaza.ornek/arama?q="
+                        className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
+                      />
+                    </label>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => void saveSearchSettings()}
+                        className="w-full rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/40 disabled:opacity-60"
+                      >
+                        {saving ? "Kaydediliyor..." : "Kaydet"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : selected.searchTemplate ? (
@@ -505,6 +543,9 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                                 <p className="font-medium">{price.seller}</p>
                                 {price.verified ? (
                                   <StatusBadge tone="success">Siteden doğrulandı</StatusBadge>
+                                ) : null}
+                                {price.engine ? (
+                                  <StatusBadge tone="neutral">{price.engine}</StatusBadge>
                                 ) : null}
                               </div>
                               <p className="text-xs text-slate-500">
@@ -614,6 +655,52 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function EngineChecks({
+  value,
+  onChange,
+}: {
+  value: SearchEngineId[];
+  onChange: (next: SearchEngineId[]) => void;
+}) {
+  return (
+    <fieldset className="block text-sm">
+      <legend className="mb-1.5 font-medium">Arama motorları</legend>
+      <div className="flex flex-wrap gap-2">
+        {SEARCH_ENGINE_IDS.map((id) => {
+          const checked = value.includes(id);
+          return (
+            <label
+              key={id}
+              className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs ${
+                checked
+                  ? "border-accent/50 bg-indigo-50 text-slate-900"
+                  : "border-line text-slate-600"
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={checked}
+                onChange={() => {
+                  if (checked && value.length === 1) {
+                    return;
+                  }
+                  onChange(
+                    checked
+                      ? value.filter((item) => item !== id)
+                      : [...value, id],
+                  );
+                }}
+              />
+              {searchEngineLabel(id)}
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 

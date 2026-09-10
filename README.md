@@ -111,7 +111,7 @@ Yönetici henüz yayında olmayan görsel/video yükleyebilir (`public/uploads/c
 
 ### Rakip analizi (`/competitors`)
 
-Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. Kaynak sitenin arama adresini (ör. `/arama?q=`) elle girebilirsiniz; sistem arama ifadesini o parametreye yazar. Sunucu sayfayı açamazsa Groq Compound aynı adresi ziyaret eder. Meta bağlıysa resmi [Reklam Kütüphanesi](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) (`ads_archive`) Facebook / Instagram reklamlarını tarar. Ticari reklam arşivi AB/İngiltere teslimatında daha doludur. Gizli stok veya kapalı hesap fiyatı çekilmez.
+Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. Seçilen arama motorlarında (Google, Google Alışveriş, Bing, Yandex, DuckDuckGo) ürünün hangi sitede kaça satıldığı taranır; en düşük / tipik / en yüksek fiyat çıkarılır. İsterseniz tek bir mağazanın kendi arama adresini (ör. `/arama?q=`) de girebilirsiniz. Meta bağlıysa resmi [Reklam Kütüphanesi](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) (`ads_archive`) Facebook / Instagram reklamlarını tarar. Ticari reklam arşivi AB/İngiltere teslimatında daha doludur. Gizli stok veya kapalı hesap fiyatı çekilmez.
 
 ### Kullanıcılar (`/users`)
 

@@ -433,6 +433,7 @@ model CompetitorWatch {
   query          String
   website        String?
   searchTemplate String?
+  searchEngines  String?
   pageId         String?
   country     String         @default("TR")
   notes       String?        @db.Text

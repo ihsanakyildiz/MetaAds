@@ -66,7 +66,7 @@ Tarih aralığına göre:
 
 Veri `GET /api/dashboard` üzerinden gelir; hesaplar karışık para birimindeyse panel bunu işaretler.
 
-Üstte **Yapay zeka analisti** kartı, aynı dönem sayılarını ücretsiz Groq modeline gönderip kapat / ölçekle / kreatif aksiyonları üretir. Anahtar yoksa kart sessizce yönlendirir; skor motorunun yerini almaz.
+Üstte **Yapay zeka analisti** kartı, aynı dönem sayılarını ücretsiz Groq modeline gönderip kapat / ölçekle / kreatif aksiyonları üretir. Aynı kart kampanya içi **reklam setleri** ve set içi **reklamlar** sayfalarında da çalışır; görsel ve video kapaklarını `qwen/qwen3.6-27b` ile inceler. Anahtar yoksa kart sessizce yönlendirir; skor motorunun yerini almaz.
 
 ### Yapay zeka (ücretsiz)
 

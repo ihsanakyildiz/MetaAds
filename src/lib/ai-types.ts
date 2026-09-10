@@ -10,6 +10,21 @@ export type AiAction = {
   priority: AiActionPriority;
 };
 
+export type AiScenario = {
+  title: string;
+  detail: string;
+  likelihood: "high" | "medium" | "low";
+};
+
+export type AiCreativeReview = {
+  name: string;
+  kind: "IMAGE" | "VIDEO" | "UNKNOWN";
+  verdict: "use" | "test" | "avoid";
+  notes: string;
+};
+
+export type AiBriefScope = "dashboard" | "adset" | "ad";
+
 export type AiBrief = {
   headline: string;
   summary: string;
@@ -18,6 +33,9 @@ export type AiBrief = {
   closeCandidates: string[];
   scaleCandidates: string[];
   creativeNote: string;
+  scenarios: AiScenario[];
+  creativeReviews: AiCreativeReview[];
+  inspectedMedia: number;
   provider: AiProvider;
   model: string;
   cached: boolean;
@@ -40,9 +58,10 @@ export type AiSettingsView = AiStatus & {
 
 export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 export const FALLBACK_GROQ_MODEL = "openai/gpt-oss-20b";
+export const GROQ_VISION_MODEL = "qwen/qwen3.6-27b";
 export const GROQ_MODEL_CHAIN = [
   DEFAULT_GROQ_MODEL,
-  "qwen/qwen3.6-27b",
+  GROQ_VISION_MODEL,
   FALLBACK_GROQ_MODEL,
 ] as const;
 export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
@@ -99,6 +118,70 @@ export function aiPriorityLabel(priority: AiActionPriority) {
       return "İzle";
     default: {
       const _exhaustive: never = priority;
+      return _exhaustive;
+    }
+  }
+}
+
+export function aiLikelihoodLabel(likelihood: AiScenario["likelihood"]) {
+  switch (likelihood) {
+    case "high":
+      return "Yüksek olasılık";
+    case "medium":
+      return "Orta olasılık";
+    case "low":
+      return "Düşük olasılık";
+    default: {
+      const _exhaustive: never = likelihood;
+      return _exhaustive;
+    }
+  }
+}
+
+export function aiLikelihoodTone(
+  likelihood: AiScenario["likelihood"],
+): "danger" | "warning" | "neutral" {
+  switch (likelihood) {
+    case "high":
+      return "danger";
+    case "medium":
+      return "warning";
+    case "low":
+      return "neutral";
+    default: {
+      const _exhaustive: never = likelihood;
+      return _exhaustive;
+    }
+  }
+}
+
+export function aiCreativeVerdictLabel(verdict: AiCreativeReview["verdict"]) {
+  switch (verdict) {
+    case "use":
+      return "Kullan";
+    case "test":
+      return "Test et";
+    case "avoid":
+      return "Kaçın";
+    default: {
+      const _exhaustive: never = verdict;
+      return _exhaustive;
+    }
+  }
+}
+
+export function aiCreativeVerdictTone(
+  verdict: AiCreativeReview["verdict"],
+): "success" | "warning" | "danger" {
+  switch (verdict) {
+    case "use":
+      return "success";
+    case "test":
+      return "warning";
+    case "avoid":
+      return "danger";
+    default: {
+      const _exhaustive: never = verdict;
       return _exhaustive;
     }
   }

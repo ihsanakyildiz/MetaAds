@@ -6,22 +6,69 @@ import { Sparkles } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   aiBriefToneClass,
+  aiCreativeVerdictLabel,
+  aiCreativeVerdictTone,
+  aiLikelihoodLabel,
+  aiLikelihoodTone,
   aiPriorityLabel,
   aiPriorityTone,
   type AiBrief,
+  type AiBriefScope,
 } from "@/lib/ai-types";
 import type { DateRangeValue } from "@/lib/date-range";
 
 type AiBriefCardProps = {
   range: DateRangeValue;
-  canManageSettings: boolean;
+  canManageSettings?: boolean;
+  scope?: AiBriefScope;
+  parentId?: string;
 };
 
-export function AiBriefCard({ range, canManageSettings }: AiBriefCardProps) {
+function emptyCopy(scope: AiBriefScope) {
+  switch (scope) {
+    case "adset":
+      return {
+        title: "Bu kampanyadaki setleri derinlemesine incele",
+        detail:
+          "Satış skoru, bütçe kararı, ürün kırılımı ve en çok harcayan reklam görsellerini birlikte okur.",
+        button: "Setleri analiz et",
+      };
+    case "ad":
+      return {
+        title: "Reklam görsellerini ve metinleri incele",
+        detail:
+          "Her reklamın kapak görseli/videosu, başlık ve istatistiğini karşılaştırıp hangisini ölçekleyeceğini söyler.",
+        button: "Reklamları analiz et",
+      };
+    case "dashboard":
+      return {
+        title: "Dönemi Türkçe aksiyonlara çevir",
+        detail:
+          "Satış skoru, uyarılar ve kreatif önizlemelerini Groq ile yorumlar. Harcama uydurmaz.",
+        button: "Dönemi analiz et",
+      };
+    default: {
+      const _exhaustive: never = scope;
+      return _exhaustive;
+    }
+  }
+}
+
+export function AiBriefCard({
+  range,
+  canManageSettings = false,
+  scope = "dashboard",
+  parentId,
+}: AiBriefCardProps) {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [brief, setBrief] = useState<AiBrief | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setBrief(null);
+    setError("");
+  }, [scope, parentId, range.since, range.until]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +99,8 @@ export function AiBriefCard({ range, canManageSettings }: AiBriefCardProps) {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        scope,
+        parentId,
         datePreset: range.preset,
         since: range.since,
         until: range.until,
@@ -92,11 +141,10 @@ export function AiBriefCard({ range, canManageSettings }: AiBriefCardProps) {
             Yapay zeka analisti
           </p>
           <h2 className="mt-2 text-xl font-semibold tracking-tight">
-            {brief?.headline ?? "Dönemi Türkçe aksiyonlara çevir"}
+            {brief?.headline ?? emptyCopy(scope).title}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            {brief?.summary ??
-              "Mevcut satış skoru ve bütçe kurallarını Groq’un ücretsiz modeliyle yorumlar. Harcama uydurmaz; paneldeki sayılara bakar."}
+            {brief?.summary ?? emptyCopy(scope).detail}
           </p>
         </div>
         <button
@@ -109,7 +157,7 @@ export function AiBriefCard({ range, canManageSettings }: AiBriefCardProps) {
             ? "Analiz ediliyor..."
             : brief
               ? "Yeniden üret"
-              : "Dönemi analiz et"}
+              : emptyCopy(scope).button}
         </button>
       </div>
 
@@ -150,6 +198,51 @@ export function AiBriefCard({ range, canManageSettings }: AiBriefCardProps) {
                 </p>
               </article>
             ))}
+            {(brief.scenarios ?? []).length > 0 ? (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Olası nedenler
+                </p>
+                {(brief.scenarios ?? []).map((scenario) => (
+                  <article
+                    key={scenario.title}
+                    className="rounded-xl border border-white/70 bg-white/80 px-4 py-3"
+                  >
+                    <StatusBadge tone={aiLikelihoodTone(scenario.likelihood)}>
+                      {aiLikelihoodLabel(scenario.likelihood)}
+                    </StatusBadge>
+                    <p className="mt-1 font-medium">{scenario.title}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      {scenario.detail}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+            {(brief.creativeReviews ?? []).length > 0 ? (
+              <div className="space-y-2 pt-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Görsel / video incelemesi
+                </p>
+                {(brief.creativeReviews ?? []).map((review) => (
+                  <article
+                    key={review.name}
+                    className="rounded-xl border border-white/70 bg-white/80 px-4 py-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge tone={aiCreativeVerdictTone(review.verdict)}>
+                        {aiCreativeVerdictLabel(review.verdict)}
+                      </StatusBadge>
+                      <span className="text-xs text-slate-500">{review.kind}</span>
+                    </div>
+                    <p className="mt-1 font-medium">{review.name}</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      {review.notes}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="space-y-3">
             {brief.scaleCandidates.length > 0 ? (
@@ -188,6 +281,9 @@ export function AiBriefCard({ range, canManageSettings }: AiBriefCardProps) {
             ) : null}
             <p className="text-xs text-slate-500">
               {brief.provider} · {brief.model}
+              {(brief.inspectedMedia ?? 0) > 0
+                ? ` · ${brief.inspectedMedia} görsel incelendi`
+                : ""}
               {brief.cached ? " · önbellek" : ""}
             </p>
           </div>

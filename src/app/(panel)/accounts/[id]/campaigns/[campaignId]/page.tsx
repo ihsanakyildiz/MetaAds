@@ -85,6 +85,7 @@ export default async function CampaignAdSetsPage({
           campaignHasBudget={Boolean(
             campaign.dailyBudget || campaign.lifetimeBudget,
           )}
+          canManageSettings={hasPermission(user.role, PERMISSIONS.SETTINGS_META)}
         />
       </main>
     </>

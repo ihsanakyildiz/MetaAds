@@ -88,6 +88,7 @@ export default async function AdSetAdsPage({
           initialCount={adSet._count.ads}
           canManage={hasPermission(user.role, PERMISSIONS.CAMPAIGNS_MANAGE)}
           accountId={adSet.campaign.account.id}
+          canManageSettings={hasPermission(user.role, PERMISSIONS.SETTINGS_META)}
         />
       </main>
     </>

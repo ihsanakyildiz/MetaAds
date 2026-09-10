@@ -4,6 +4,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   DEFAULT_GROQ_MODEL,
   GROQ_MODEL_CHAIN,
+  GROQ_VISION_MODEL,
   resolveGroqModel,
   type AiProvider,
   type AiStatus,
@@ -286,13 +287,65 @@ function extractJsonObject(text: string) {
   return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
 }
 
+type GroqContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+function publicMediaUrl(url: string) {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  const appUrl = (process.env.APP_URL ?? "").replace(/\/+$/, "");
+  if (url.startsWith("/") && appUrl) {
+    return `${appUrl}${url}`;
+  }
+
+  return "";
+}
+
+export function normalizeMediaUrls(urls: string[], limit = 3) {
+  const unique = new Set<string>();
+
+  for (const raw of urls) {
+    const next = publicMediaUrl(raw.trim());
+    if (next) {
+      unique.add(next);
+    }
+    if (unique.size >= limit) {
+      break;
+    }
+  }
+
+  return [...unique];
+}
+
 async function completeGroq(
   config: ResolvedAiConfig,
   system: string,
   user: string,
-  model = resolveGroqModel(config.model),
-  tried: string[] = [],
+  options?: {
+    images?: string[];
+    model?: string;
+    tried?: string[];
+  },
 ) {
+  const images = normalizeMediaUrls(options?.images ?? []);
+  const model =
+    options?.model ??
+    (images.length > 0 ? GROQ_VISION_MODEL : resolveGroqModel(config.model));
+  const tried = options?.tried ?? [];
+  const userContent: string | GroqContentPart[] =
+    images.length > 0
+      ? [
+          { type: "text", text: user },
+          ...images.map((url) => ({
+            type: "image_url" as const,
+            image_url: { url },
+          })),
+        ]
+      : user;
+
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -301,11 +354,12 @@ async function completeGroq(
     },
     body: JSON.stringify({
       model,
-      temperature: 0.3,
+      temperature: 0.2,
+      max_completion_tokens: 4096,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
-        { role: "user", content: user },
+        { role: "user", content: userContent },
       ],
     }),
     cache: "no-store",
@@ -326,10 +380,23 @@ async function completeGroq(
     response.status === 429 ||
     response.status === 400 ||
     response.status === 404;
+
+  if (!response.ok && shouldRetry && images.length > 0) {
+    return completeGroq(config, system, user, {
+      images: [],
+      model: resolveGroqModel(config.model),
+      tried: nextTried,
+    });
+  }
+
   const nextModel = GROQ_MODEL_CHAIN.find((item) => !nextTried.includes(item));
 
   if (!response.ok && shouldRetry && nextModel) {
-    return completeGroq(config, system, user, nextModel, nextTried);
+    return completeGroq(config, system, user, {
+      images: [],
+      model: nextModel,
+      tried: nextTried,
+    });
   }
 
   if (!response.ok) {
@@ -349,20 +416,31 @@ async function completeGemini(
   config: ResolvedAiConfig,
   system: string,
   user: string,
+  images: string[] = [],
 ) {
   const url = new URL(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`,
   );
   url.searchParams.set("key", config.apiKey);
 
+  const parts: Array<Record<string, unknown>> = [{ text: user }];
+  for (const imageUrl of normalizeMediaUrls(images)) {
+    parts.push({
+      fileData: {
+        mimeType: "image/jpeg",
+        fileUri: imageUrl,
+      },
+    });
+  }
+
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
+      contents: [{ role: "user", parts }],
       generationConfig: {
-        temperature: 0.3,
+        temperature: 0.2,
         responseMimeType: "application/json",
       },
     }),
@@ -398,6 +476,7 @@ export async function completeJson(
   system: string,
   user: string,
   config?: ResolvedAiConfig | null,
+  images: string[] = [],
 ) {
   const resolved = config ?? (await resolveAiConfig());
 
@@ -407,8 +486,8 @@ export async function completeJson(
 
   const completion =
     resolved.provider === "GROQ"
-      ? await completeGroq(resolved, system, user)
-      : await completeGemini(resolved, system, user);
+      ? await completeGroq(resolved, system, user, { images })
+      : await completeGemini(resolved, system, user, images);
 
   return {
     data: extractJsonObject(completion.text),

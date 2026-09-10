@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Pencil, Plus, RefreshCw, Search, ShieldAlert, ShoppingBag, Sparkles } from "lucide-react";
 import { AdForm } from "@/components/ads/ad-form";
 import { AdSetForm } from "@/components/ads/adset-form";
+import { AiBriefCard } from "@/components/dashboard/ai-brief-card";
 import { CloseSecretDialog } from "@/components/ads/close-secret-dialog";
 import { SalesModal } from "@/components/ads/sales-modal";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -40,6 +41,7 @@ type ChildrenExplorerProps = {
   accountId?: string;
   parentObjective?: string | null;
   campaignHasBudget?: boolean;
+  canManageSettings?: boolean;
 };
 
 const EMPTY_STATS: ChildStats = {
@@ -69,6 +71,7 @@ export function ChildrenExplorer({
   accountId,
   parentObjective,
   campaignHasBudget = false,
+  canManageSettings = false,
 }: ChildrenExplorerProps) {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<ChildListItem[]>([]);
@@ -216,6 +219,12 @@ export function ChildrenExplorer({
 
   return (
     <div className="space-y-6">
+      <AiBriefCard
+        range={dateRange}
+        scope={kind}
+        parentId={parentId}
+        canManageSettings={canManageSettings}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <form
           onSubmit={(event) => {

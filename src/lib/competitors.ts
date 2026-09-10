@@ -8,6 +8,7 @@ import type {
   CompetitorSource,
   CompetitorWatchView,
 } from "@/lib/competitors-types";
+import { collectSitePrices } from "@/lib/competitor-page";
 import { searchAdLibrary } from "@/lib/meta-ad-library";
 import { prisma } from "@/lib/prisma";
 
@@ -33,24 +34,30 @@ function asPrices(value: unknown): CompetitorPrice[] {
     return [];
   }
 
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
 
-      const row = item as Record<string, unknown>;
-      return {
-        seller: asString(row.seller, "Bilinmeyen satıcı"),
+    const row = item as Record<string, unknown>;
+    const seller = asString(row.seller, "Bilinmeyen satıcı");
+
+    if (!seller) {
+      return [];
+    }
+
+    return [
+      {
+        seller,
         product: asString(row.product),
         price: asNumber(row.price),
         currency: asString(row.currency) || null,
         url: asString(row.url) || null,
         note: asString(row.note),
-      } satisfies CompetitorPrice;
-    })
-    .filter((item): item is CompetitorPrice => Boolean(item?.seller))
-    .slice(0, 12);
+        verified: row.verified === true,
+      } satisfies CompetitorPrice,
+    ];
+  }).slice(0, 12);
 }
 
 function asAds(value: unknown): CompetitorAdHit[] {
@@ -261,21 +268,85 @@ export async function listOwnProductHints() {
 }
 
 const RESEARCH_PROMPT = `Sen e-ticaret pazar analistisin. Türkçe yaz.
-İnternette GEÇERLİ, KAMUYA AÇIK fiyatları ve reklamları ara: mağaza sayfaları, pazaryerleri, Facebook Ad Library, Instagram reklamları, marka siteleri.
-Uydurma fiyat yazma. Fiyatı kaynakta görmediysen price=null bırak ve note'a "kaynakta net fiyat yok" yaz.
-Meta ticari reklam arşivi AB/İngiltere teslimatında daha doludur; TR için web/Ad Library aramasını kullan.
+siteEvidence.prices dizisi, verdiğimiz rakip sitesinden AZ ÖNCE çekilmiş doğrulanmış fiyatlardır.
+O satıcı / o URL için başka fiyat UYDURMA. siteEvidence.prices varsa bunları prices listesinin en üstüne koy, verified=true yaz.
+siteEvidence.prices boşsa o site için price=null ve note="sitede bu ürüne ait net fiyat bulunamadı" yaz; ezber veya eski arama sonucu kullanma.
+Diğer pazaryeri fiyatları yalnızca kaynak URL ile birlikte ve gerçekten görüldüyse eklenebilir.
 Yanıt yalnızca JSON:
 {
   "headline":"",
   "summary":"",
   "tone":"success"|"warning"|"accent"|"neutral",
   "priceRange":{"min":0,"max":0,"typical":0,"currency":"TRY"},
-  "prices":[{"seller":"","product":"","price":0,"currency":"TRY","url":"","note":""}],
+  "prices":[{"seller":"","product":"","price":0,"currency":"TRY","url":"","note":"","verified":true}],
   "ads":[{"platform":"facebook"|"instagram"|"meta"|"web","advertiser":"","message":"","offer":"","url":"","active":true}],
   "threats":[""],
   "opportunities":[""],
   "sources":[{"title":"","url":""}]
 }`;
+
+function hostOf(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    return new URL(
+      /^https?:\/\//i.test(value) ? value : `https://${value}`,
+    ).host.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function applyVerifiedPrices(
+  insight: CompetitorInsight,
+  verified: Awaited<ReturnType<typeof collectSitePrices>>["prices"],
+  sellerName: string,
+  website?: string | null,
+) {
+  if (verified.length === 0) {
+    const host = hostOf(website);
+    insight.prices = insight.prices.map((row) => {
+      if (host && hostOf(row.url) === host) {
+        return {
+          ...row,
+          price: null,
+          verified: false,
+          note: row.note || "Kaynak sitede bu ürün için doğrulanmış fiyat yok.",
+        };
+      }
+      return row;
+    });
+    return;
+  }
+
+  const host = hostOf(website);
+  const verifiedRows: CompetitorPrice[] = verified.map((price) => ({
+    seller: sellerName,
+    product: price.product,
+    price: price.amount,
+    currency: price.currency,
+    url: price.url,
+    note: "Kaynak siteden anlık okundu.",
+    verified: true,
+  }));
+  const extras = insight.prices.filter((row) => hostOf(row.url) !== host);
+  insight.prices = [...verifiedRows, ...extras];
+
+  const amounts = insight.prices
+    .map((row) => row.price)
+    .filter((value): value is number => value !== null);
+  if (amounts.length > 0) {
+    const sorted = [...amounts].sort((left, right) => left - right);
+    insight.priceRange = {
+      min: sorted[0] ?? null,
+      max: sorted[sorted.length - 1] ?? null,
+      typical: sorted[Math.floor(sorted.length / 2)] ?? null,
+      currency: verified[0]?.currency ?? insight.priceRange.currency,
+    };
+  }
+}
 
 export async function analyzeCompetitorWatch(id: string) {
   const watch = await prisma.competitorWatch.findUnique({
@@ -286,13 +357,18 @@ export async function analyzeCompetitorWatch(id: string) {
     throw new Error("Takip kaydı bulunamadı.");
   }
 
-  const [library, ownProducts] = await Promise.all([
+  const [library, ownProducts, siteEvidence] = await Promise.all([
     searchAdLibrary({
       query: watch.query || watch.name,
       country: watch.country,
       pageId: watch.pageId,
     }),
     listOwnProductHints(),
+    collectSitePrices({
+      website: watch.website,
+      query: watch.query || watch.name,
+      sellerName: watch.name,
+    }),
   ]);
 
   const result = await completeWebResearch(
@@ -308,19 +384,29 @@ export async function analyzeCompetitorWatch(id: string) {
         country: watch.country,
         notes: watch.notes,
       },
+      siteEvidence,
       ownTopProducts: ownProducts.slice(0, 8),
       officialAdLibrary: library.hits.slice(0, 10),
       libraryNote: library.note,
-      mustVisit: [
-        watch.website,
-        "https://www.facebook.com/ads/library",
-        "https://www.instagram.com",
-      ].filter(Boolean),
     }),
     watch.country,
   );
 
-  const insight = parseInsight(result.data, result.model, library.note);
+  const insight = parseInsight(
+    result.data,
+    result.model,
+    [library.note, siteEvidence.note].filter(Boolean).join(" "),
+  );
+  applyVerifiedPrices(insight, siteEvidence.prices, watch.name, watch.website);
+
+  for (const price of siteEvidence.prices) {
+    if (!insight.sources.some((source) => source.url === price.url)) {
+      insight.sources.unshift({
+        title: price.product || watch.name,
+        url: price.url,
+      });
+    }
+  }
 
   if (library.hits.length && insight.ads.length === 0) {
     insight.ads = library.hits.slice(0, 8).map((hit) => ({

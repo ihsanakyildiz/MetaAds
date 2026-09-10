@@ -399,7 +399,12 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                             className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
                           >
                             <div>
-                              <p className="font-medium">{price.seller}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-medium">{price.seller}</p>
+                                {price.verified ? (
+                                  <StatusBadge tone="success">Siteden doğrulandı</StatusBadge>
+                                ) : null}
+                              </div>
                               <p className="text-xs text-slate-500">
                                 {price.product} {price.note ? `· ${price.note}` : ""}
                               </p>

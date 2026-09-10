@@ -7,6 +7,7 @@ export type CompetitorPrice = {
   currency: string | null;
   url: string | null;
   note: string;
+  verified?: boolean;
 };
 
 export type CompetitorAdHit = {

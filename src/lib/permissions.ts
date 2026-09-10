@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   USERS_MANAGE: "users.manage",
   COMPETITORS_VIEW: "competitors.view",
   COMPETITORS_MANAGE: "competitors.manage",
+  META_AD_LIBRARY: "meta.ad_library",
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -31,6 +32,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.USERS_MANAGE,
     PERMISSIONS.COMPETITORS_VIEW,
     PERMISSIONS.COMPETITORS_MANAGE,
+    PERMISSIONS.META_AD_LIBRARY,
   ],
   ANALYST: [
     PERMISSIONS.DASHBOARD_VIEW,
@@ -39,6 +41,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.REPORTS_VIEW,
     PERMISSIONS.CREATIVES_VIEW,
     PERMISSIONS.COMPETITORS_VIEW,
+    PERMISSIONS.META_AD_LIBRARY,
   ],
   ADVERTISER: [
     PERMISSIONS.DASHBOARD_VIEW,
@@ -71,9 +74,9 @@ export function roleLabel(role: Role) {
 export function roleDescription(role: Role) {
   switch (role) {
     case "ADMIN":
-      return "Tüm ayarlar, kullanıcılar, rakip analizi, kreatif yükleme ve Meta köprüsü";
+      return "Tüm ayarlar, kullanıcılar, rakip analizi, Meta reklam kütüphanesi, kreatif yükleme ve Meta köprüsü";
     case "ANALYST":
-      return "Rapor, kreatif, rakip analizi ve hesap görüntüleme";
+      return "Rapor, kreatif, rakip analizi, Meta reklam kütüphanesi ve hesap görüntüleme";
     case "ADVERTISER":
       return "Reklam hesapları, kampanya ve kreatif önerileri";
     default: {

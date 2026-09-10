@@ -14,12 +14,20 @@ export type CompetitorPrice = {
 };
 
 export type CompetitorAdHit = {
+  id?: string;
   platform: "facebook" | "instagram" | "meta" | "web";
   advertiser: string;
+  pageId?: string | null;
   message: string;
   offer: string;
   url: string | null;
   active: boolean | null;
+  platforms?: string[];
+  languages?: string[];
+  startTime?: string | null;
+  stopTime?: string | null;
+  coverage?: string;
+  euReach?: number | null;
 };
 
 export type CompetitorSource = {

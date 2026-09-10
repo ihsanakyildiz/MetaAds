@@ -23,7 +23,13 @@ type ProductHint = {
   purchases: number;
 };
 
-export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
+export function CompetitorsStudio({
+  canManage,
+  canScanAds,
+}: {
+  canManage: boolean;
+  canScanAds: boolean;
+}) {
   const [items, setItems] = useState<CompetitorWatchView[]>([]);
   const [products, setProducts] = useState<ProductHint[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -46,6 +52,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [runningId, setRunningId] = useState("");
+  const [adsRunningId, setAdsRunningId] = useState("");
   const [error, setError] = useState("");
 
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null;
@@ -175,6 +182,31 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
     setSelectedId((current) => (current === id ? null : current));
   }
 
+  async function analyzeAds(id: string) {
+    setAdsRunningId(id);
+    setError("");
+
+    const response = await fetch(`/api/competitors/${id}/ads`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (CompetitorInsight & { error?: string })
+      | null;
+    setAdsRunningId("");
+
+    if (!response.ok || !payload || payload.error) {
+      setError(payload?.error ?? "Meta reklam taraması başarısız.");
+      return;
+    }
+
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id ? { ...item, lastReport: payload } : item,
+      ),
+    );
+  }
+
   async function analyze(id: string) {
     setRunningId(id);
     setError("");
@@ -213,15 +245,27 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
           Rakip fiyatı ve Meta reklamı — kamuya açık kaynaklardan
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Ürün ifadesi seçilen arama motorlarında taranır; hangi sitede kaça
-          satıldığı listelenir ve en düşük / tipik / en yüksek fiyat çıkarılır.
-          İsterseniz ayrıca tek bir rakip mağazanın kendi arama adresini
-          girebilirsiniz (ör.{" "}
-          <code className="rounded bg-white/70 px-1">
-            https://magaza.ornek/arama?q=
-          </code>
-          ). Arama motoru adresini “Site” alanına yazmayın. Facebook /
-          Instagram reklamları resmi Meta Reklam Kütüphanesi API’si ile bakılır.
+          Meta reklamları resmi{" "}
+          <a
+            href="https://www.facebook.com/ads/library/api/"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            ads_archive
+          </a>{" "}
+          API’sinden okunur; yapay zeka yalnızca bu kayıtları özetler. En doğru
+          sonuç Facebook Sayfa ID ile gelir. Ticari reklam arşivi AB/İngiltere
+          teslimatındadır; bağlanan Meta kullanıcısının{" "}
+          <a
+            href="https://www.facebook.com/ID"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            facebook.com/ID
+          </a>{" "}
+          kimlik doğrulaması gerekir. Fiyat taraması ayrıdır ve tahmine açıktır.
         </p>
       </section>
 
@@ -311,9 +355,13 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                   <input
                     value={pageId}
                     onChange={(event) => setPageId(event.target.value)}
-                    placeholder="123456789"
+                    placeholder="Sayfa ID — en doğru reklam taraması"
                     className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                   />
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Rakip Facebook sayfasının sayısal ID’si. Kelime aramasından
+                    daha isabetlidir.
+                  </span>
                 </label>
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-medium">Ülke</span>
@@ -426,18 +474,32 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                     {selected.website ? ` · ${selected.website}` : ""}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={Boolean(runningId)}
-                  onClick={() => void analyze(selected.id)}
-                  className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                >
-                  {runningId === selected.id
-                    ? "İnternette taranıyor..."
-                    : report
-                      ? "Fiyatı yenile"
-                      : "Pazar taraması başlat"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {canScanAds ? (
+                    <button
+                      type="button"
+                      disabled={Boolean(adsRunningId)}
+                      onClick={() => void analyzeAds(selected.id)}
+                      className="rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-60"
+                    >
+                      {adsRunningId === selected.id
+                        ? "Kütüphane okunuyor..."
+                        : "Meta reklam taraması"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={Boolean(runningId)}
+                    onClick={() => void analyze(selected.id)}
+                    className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    {runningId === selected.id
+                      ? "İnternette taranıyor..."
+                      : report
+                        ? "Fiyatı yenile"
+                        : "Pazar taraması başlat"}
+                  </button>
+                </div>
               </div>
 
               {canManage ? (
@@ -578,24 +640,40 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                   {report.ads.length > 0 ? (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                        Facebook / Instagram / Meta reklamları
+                        Resmi Meta Reklam Kütüphanesi
                       </p>
                       <ul className="mt-2 space-y-2">
                         {report.ads.map((ad) => (
                           <li
-                            key={`${ad.advertiser}-${ad.message}`}
+                            key={ad.id || `${ad.advertiser}-${ad.message}`}
                             className="rounded-xl border border-line px-4 py-3"
                           >
                             <div className="flex flex-wrap gap-2">
                               <StatusBadge tone="accent">{ad.platform}</StatusBadge>
                               {ad.active ? (
                                 <StatusBadge tone="success">Aktif</StatusBadge>
+                              ) : (
+                                <StatusBadge tone="neutral">Durmuş</StatusBadge>
+                              )}
+                              {ad.coverage ? (
+                                <StatusBadge tone="neutral">{ad.coverage}</StatusBadge>
                               ) : null}
                             </div>
                             <p className="mt-1 font-medium">{ad.advertiser}</p>
                             <p className="mt-1 text-sm text-slate-600">{ad.message}</p>
                             {ad.offer ? (
                               <p className="mt-1 text-xs text-slate-500">{ad.offer}</p>
+                            ) : null}
+                            {ad.platforms?.length ? (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {ad.platforms.join(", ")}
+                                {ad.languages?.length
+                                  ? ` · ${ad.languages.join(", ")}`
+                                  : ""}
+                                {ad.euReach
+                                  ? ` · AB erişim ~${ad.euReach}`
+                                  : ""}
+                              </p>
                             ) : null}
                             {ad.url ? (
                               <a
@@ -604,13 +682,15 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                                 rel="noreferrer"
                                 className="mt-2 inline-block text-xs text-accent"
                               >
-                                Reklamı aç
+                                Kütüphane görüntüsü
                               </a>
                             ) : null}
                           </li>
                         ))}
                       </ul>
                     </div>
+                  ) : report.libraryNote ? (
+                    <p className="text-sm text-slate-500">{report.libraryNote}</p>
                   ) : null}
 
                   <div className="grid gap-4 md:grid-cols-2">

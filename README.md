@@ -111,7 +111,7 @@ Yönetici henüz yayında olmayan görsel/video yükleyebilir (`public/uploads/c
 
 ### Rakip analizi (`/competitors`)
 
-Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. Seçilen arama motorlarında (Google, Google Alışveriş, Bing, Yandex, DuckDuckGo) ürünün hangi sitede kaça satıldığı taranır; en düşük / tipik / en yüksek fiyat çıkarılır. İsterseniz tek bir mağazanın kendi arama adresini (ör. `/arama?q=`) de girebilirsiniz. Meta bağlıysa resmi [Reklam Kütüphanesi](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) (`ads_archive`) Facebook / Instagram reklamlarını tarar. Ticari reklam arşivi AB/İngiltere teslimatında daha doludur. Gizli stok veya kapalı hesap fiyatı çekilmez.
+Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. **Meta reklam taraması** resmi [`ads_archive`](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) API’sidir (`meta.ad_library` ayrıcalığı; yönetici ve analist). En doğru sonuç Facebook Sayfa ID ile gelir. Bağlanan Meta kullanıcısının [facebook.com/ID](https://www.facebook.com/ID) kimlik doğrulaması gerekir; aksi halde API `Application does not have permission` döner. Ticari reklamlar AB/İngiltere teslimatında arşivlenir; TR’ye özel ticari reklam bu API’de yoktur. Yapay zeka yalnızca resmi kayıtları özetler, reklam uydurmaz. Fiyat taraması ayrıdır ve tahmine açıktır.
 
 ### Kullanıcılar (`/users`)
 

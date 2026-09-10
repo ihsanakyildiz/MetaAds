@@ -1,5 +1,5 @@
 import { CompetitorKind } from "@prisma/client";
-import { completeWebResearch } from "@/lib/ai";
+import { completeJson, completeWebResearch } from "@/lib/ai";
 import type {
   CompetitorAdHit,
   CompetitorInsight,
@@ -74,9 +74,9 @@ function asAds(value: unknown): CompetitorAdHit[] {
   }
 
   return value
-    .map((item) => {
+    .flatMap((item) => {
       if (!item || typeof item !== "object") {
-        return null;
+        return [];
       }
 
       const row = item as Record<string, unknown>;
@@ -89,17 +89,26 @@ function asAds(value: unknown): CompetitorAdHit[] {
           ? platform
           : "web";
 
-      return {
-        platform: resolved,
-        advertiser: asString(row.advertiser, "Bilinmeyen"),
-        message: asString(row.message),
-        offer: asString(row.offer),
-        url: asString(row.url) || null,
-        active: typeof row.active === "boolean" ? row.active : null,
-      } satisfies CompetitorAdHit;
+      return [
+        {
+          id: asString(row.id) || undefined,
+          platform: resolved,
+          advertiser: asString(row.advertiser, "Bilinmeyen"),
+          pageId: asString(row.pageId) || null,
+          message: asString(row.message),
+          offer: asString(row.offer),
+          url: asString(row.url) || null,
+          active: typeof row.active === "boolean" ? row.active : null,
+          platforms: asStringList(row.platforms),
+          languages: asStringList(row.languages),
+          startTime: asString(row.startTime) || null,
+          stopTime: asString(row.stopTime) || null,
+          coverage: asString(row.coverage),
+          euReach: asNumber(row.euReach),
+        } satisfies CompetitorAdHit,
+      ];
     })
-    .filter((item): item is CompetitorAdHit => Boolean(item))
-    .slice(0, 12);
+    .slice(0, 24);
 }
 
 function asSources(value: unknown): CompetitorSource[] {
@@ -524,12 +533,7 @@ export async function analyzeCompetitorWatch(id: string) {
     : watch.searchTemplate;
   const shouldScrapeShop = Boolean(shopWebsite || shopTemplate);
 
-  const [library, ownProducts, fetched, market] = await Promise.all([
-    searchAdLibrary({
-      query,
-      country: watch.country,
-      pageId: watch.pageId,
-    }),
+  const [ownProducts, fetched, market] = await Promise.all([
     listOwnProductHints(),
     shouldScrapeShop
       ? collectSitePrices({
@@ -581,8 +585,6 @@ export async function analyzeCompetitorWatch(id: string) {
         })),
       },
       ownTopProducts: ownProducts.slice(0, 8),
-      officialAdLibrary: library.hits.slice(0, 10),
-      libraryNote: library.note,
     }),
     watch.country,
     ["web_search", "visit_website"],
@@ -591,7 +593,7 @@ export async function analyzeCompetitorWatch(id: string) {
   const insight = parseInsight(
     result.data,
     result.model,
-    [library.note, market.note, siteEvidence.note].filter(Boolean).join(" "),
+    [market.note, siteEvidence.note].filter(Boolean).join(" "),
   );
   applyVerifiedPrices(
     insight,
@@ -631,15 +633,151 @@ export async function analyzeCompetitorWatch(id: string) {
     });
   }
 
-  if (library.hits.length && insight.ads.length === 0) {
-    insight.ads = library.hits.slice(0, 8).map((hit) => ({
-      platform: hit.platforms.includes("instagram") ? "instagram" : "facebook",
-      advertiser: hit.pageName,
-      message: hit.body,
-      offer: hit.coverage,
-      url: hit.snapshotUrl,
-      active: !hit.stopTime,
-    }));
+  await prisma.competitorReport.create({
+    data: {
+      watchId: watch.id,
+      headline: insight.headline,
+      summary: insight.summary,
+      payload: JSON.stringify(insight),
+      sourceCount: insight.sources.length,
+    },
+  });
+
+  await prisma.competitorWatch.update({
+    where: { id: watch.id },
+    data: { updatedAt: new Date() },
+  });
+
+  return insight;
+}
+
+const AD_BRIEF_PROMPT = `Sen Meta reklam analistisin. Türkçe yaz.
+officialAds dizisi Meta ads_archive resmi yanıtıdır. Bu listenin dışından reklam uydurma.
+Her kaydı koru; metin, teklif, platform ve aktiflik özetle.
+Yanıt yalnızca JSON:
+{
+  "headline":"",
+  "summary":"",
+  "tone":"success"|"warning"|"accent"|"neutral",
+  "threats":[""],
+  "opportunities":[""]
+}`;
+
+function platformOf(platforms: string[]): CompetitorAdHit["platform"] {
+  const joined = platforms.join(" ").toLowerCase();
+  if (joined.includes("instagram") && joined.includes("facebook")) {
+    return "meta";
+  }
+  if (joined.includes("instagram")) {
+    return "instagram";
+  }
+  if (joined.includes("facebook")) {
+    return "facebook";
+  }
+  return "meta";
+}
+
+export async function analyzeCompetitorAds(id: string) {
+  const watch = await prisma.competitorWatch.findUnique({
+    where: { id },
+  });
+
+  if (!watch) {
+    throw new Error("Takip kaydı bulunamadı.");
+  }
+
+  const library = await searchAdLibrary({
+    query: watch.query || watch.name,
+    country: watch.country,
+    pageId: watch.pageId,
+  });
+
+  const ads: CompetitorAdHit[] = library.hits.map((hit) => ({
+    id: hit.id,
+    platform: platformOf(hit.platforms),
+    advertiser: hit.pageName,
+    pageId: hit.pageId,
+    message: hit.body || hit.titles.join(" · "),
+    offer: hit.captions[0] || hit.titles[0] || hit.coverage,
+    url: hit.snapshotUrl,
+    active: hit.stopTime ? false : true,
+    platforms: hit.platforms,
+    languages: hit.languages,
+    startTime: hit.startTime,
+    stopTime: hit.stopTime,
+    coverage: hit.coverage,
+    euReach: hit.euReach,
+  }));
+
+  let headline = ads.length
+    ? `${ads.length} resmi kütüphane kaydı`
+    : "Kütüphanede kayıt yok";
+  let summary = library.note;
+  let tone: CompetitorInsight["tone"] = ads.length ? "accent" : "warning";
+  let threats: string[] = [];
+  let opportunities: string[] = [];
+  let model = "ads_archive";
+
+  if (ads.length > 0) {
+    try {
+      const brief = await completeJson(
+        AD_BRIEF_PROMPT,
+        JSON.stringify({
+          watch: {
+            name: watch.name,
+            query: watch.query,
+            pageId: watch.pageId,
+            country: watch.country,
+          },
+          officialAds: ads,
+          libraryNote: library.note,
+        }),
+      );
+      headline = asString(brief.data.headline, headline);
+      summary = asString(brief.data.summary, summary);
+      tone = asTone(brief.data.tone);
+      threats = asStringList(brief.data.threats);
+      opportunities = asStringList(brief.data.opportunities);
+      model = brief.model;
+    } catch {
+      summary = `${library.note} Yapay zeka özeti alınamadı; listelenen kayıtlar yine resmi API’dendir.`;
+    }
+  }
+
+  const insight: CompetitorInsight = {
+    headline,
+    summary,
+    tone,
+    priceRange: { min: null, max: null, typical: null, currency: "TRY" },
+    prices: [],
+    ads,
+    threats,
+    opportunities,
+    sources: ads
+      .filter((ad) => ad.url)
+      .slice(0, 10)
+      .map((ad) => ({
+        title: ad.advertiser,
+        url: ad.url as string,
+      })),
+    libraryNote: library.note,
+    generatedAt: new Date().toISOString(),
+    model,
+  };
+
+  const previous = await prisma.competitorReport.findFirst({
+    where: { watchId: watch.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (previous) {
+    try {
+      const last = JSON.parse(previous.payload) as CompetitorInsight;
+      insight.prices = last.prices ?? [];
+      insight.priceRange = last.priceRange ?? insight.priceRange;
+    } catch {
+      // keep ads-only report
+    }
   }
 
   await prisma.competitorReport.create({
@@ -648,13 +786,8 @@ export async function analyzeCompetitorWatch(id: string) {
       headline: insight.headline,
       summary: insight.summary,
       payload: JSON.stringify(insight),
-      sourceCount: insight.sources.length + library.hits.length,
+      sourceCount: ads.length,
     },
-  });
-
-  await prisma.competitorWatch.update({
-    where: { id: watch.id },
-    data: { updatedAt: new Date() },
   });
 
   return insight;

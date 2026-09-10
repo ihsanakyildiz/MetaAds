@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -540,7 +540,68 @@ export function MetaSettings({
           </div>
         )}
       </section>
+
+      <AdLibraryAccessCard />
     </div>
+  );
+}
+
+function AdLibraryAccessCard() {
+  const [note, setNote] = useState("Kütüphane erişimi kontrol ediliyor…");
+  const [ready, setReady] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    void fetch("/api/meta/ad-library/status", { credentials: "include" })
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          ready?: boolean;
+          note?: string;
+        };
+        setReady(Boolean(data.ready));
+        setNote(data.note ?? "Durum alınamadı.");
+      })
+      .catch(() => {
+        setReady(false);
+        setNote("Durum kontrolü yapılamadı.");
+      });
+  }, []);
+
+  return (
+    <section className="rounded-2xl border border-line bg-card p-6">
+      <h3 className="font-semibold">Meta Reklam Kütüphanesi</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Rakip reklam taraması resmi{" "}
+        <a
+          href="https://www.facebook.com/ads/library/api/"
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent underline"
+        >
+          ads_archive
+        </a>{" "}
+        API’sini kullanır. App Review yetmez; bağlanan kullanıcının{" "}
+        <a
+          href="https://www.facebook.com/ID"
+          target="_blank"
+          rel="noreferrer"
+          className="text-accent underline"
+        >
+          facebook.com/ID
+        </a>{" "}
+        kimlik doğrulaması gerekir. Ticari reklamlar AB/İngiltere teslimatında
+        arşivlenir.
+      </p>
+      <div className="mt-4">
+        <StatusBadge
+          tone={
+            ready === null ? "neutral" : ready ? "success" : "warning"
+          }
+        >
+          {ready === null ? "Kontrol" : ready ? "API hazır" : "API kapalı"}
+        </StatusBadge>
+        <p className="mt-2 text-sm text-slate-600">{note}</p>
+      </div>
+    </section>
   );
 }
 

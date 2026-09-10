@@ -10,11 +10,12 @@ export default async function CompetitorsPage() {
     <>
       <Header
         title="Rakip analizi"
-        description="Ürün ve rakip firmalar için canlı fiyat taraması, Facebook / Instagram reklam kütüphanesi"
+        description="Rakip mağaza fiyatı ve resmi Meta Reklam Kütüphanesi taraması"
       />
       <main className="flex-1 overflow-y-auto p-8">
         <CompetitorsStudio
           canManage={hasPermission(user.role, PERMISSIONS.COMPETITORS_MANAGE)}
+          canScanAds={hasPermission(user.role, PERMISSIONS.META_AD_LIBRARY)}
         />
       </main>
     </>

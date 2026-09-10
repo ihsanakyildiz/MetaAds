@@ -20,6 +20,8 @@ export type SiteEvidence = {
   prices: PagePrice[];
   note: string;
   search: DetectedSearch | null;
+  searchUrl: string | null;
+  blocked: boolean;
 };
 
 const SEARCH_PARAM_NAMES = [
@@ -756,6 +758,8 @@ export async function collectSitePrices(input: {
       prices: [],
       note: "Kaynak site yok; fiyat yalnızca genel web taramasına bırakıldı.",
       search: null,
+      searchUrl: null,
+      blocked: false,
     };
   }
 
@@ -809,16 +813,26 @@ export async function collectSitePrices(input: {
     product: price.product || input.query,
   }));
 
+  const blocked = pages.some(
+    (page) => page.status === 0 || page.status === 401 || page.status === 403 || page.status === 429,
+  );
   const searchNote = search
     ? ` Kullanılan arama adresi: ${search.template} (${search.source}).`
     : " Sitede arama formu bulunamadı ve elle arama adresi girilmedi; genel arama adresleri denendi.";
+
+  let note = `${base.host} açıldı ama bu ürüne ait net fiyat etiketi bulunamadı.${searchNote} Model tahmin fiyat yazmamalı.`;
+  if (prices.length) {
+    note = `${base.host} arama sonuçlarından doğrulanmış güncel fiyat.${searchNote}`;
+  } else if (blocked) {
+    note = `${base.host} bu sunucudan engellendi (${pages.map((page) => page.status).join(", ")}). Arama adresi modele visit_website için verildi.${searchNote}`;
+  }
 
   return {
     pages,
     prices,
     search,
-    note: prices.length
-      ? `${base.host} arama sonuçlarından doğrulanmış güncel fiyat.${searchNote}`
-      : `${base.host} açıldı ama bu ürüne ait net fiyat etiketi bulunamadı.${searchNote} Model tahmin fiyat yazmamalı.`,
+    searchUrl,
+    blocked,
+    note,
   };
 }

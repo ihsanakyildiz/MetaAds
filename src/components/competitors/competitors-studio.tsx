@@ -195,12 +195,12 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
           Sitede bir arama yapıp adres çubuğundaki linki “Site arama adresi”
           alanına yapıştırın (ör.{" "}
           <code className="rounded bg-white/70 px-1">
-            https://www.pozitifo.com.tr/Arama?1&kelime=
+            https://magaza.ornek/arama?q=
           </code>
-          ). Sistem arama ifadesini o parametreye yazar. Otomatik tespit
-          başarısız olsa da sizin girdiğiniz adres kullanılır. Groq Compound
-          diğer pazaryerlerine bakar. Facebook / Instagram reklamları resmi Meta
-          Reklam Kütüphanesi API’si ve Ad Library web taramasıyla bakılır.
+          ). Sistem arama ifadesini o parametreye yazar. Sunucu sayfayı
+          açamazsa Groq Compound aynı adresi ziyaret edip fiyatı okur.
+          Facebook / Instagram reklamları resmi Meta Reklam Kütüphanesi API’si
+          ve Ad Library web taramasıyla bakılır.
         </p>
       </section>
 
@@ -236,7 +236,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                     required
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    placeholder="Örn. Marka X veya ürün adı"
+                    placeholder="Rakip mağaza veya ürün adı"
                     className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                   />
                 </label>
@@ -265,7 +265,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                   <input
                     value={searchTemplate}
                     onChange={(event) => setSearchTemplate(event.target.value)}
-                    placeholder="https://www.ornek.com/Arama?1&kelime="
+                    placeholder="https://magaza.ornek/arama?q="
                     className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                   />
                   <span className="mt-1 block text-xs leading-5 text-slate-500">
@@ -430,7 +430,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                       onChange={(event) =>
                         setEditSearchTemplate(event.target.value)
                       }
-                      placeholder="https://www.ornek.com/Arama?1&kelime="
+                      placeholder="https://magaza.ornek/arama?q="
                       className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                     />
                   </label>

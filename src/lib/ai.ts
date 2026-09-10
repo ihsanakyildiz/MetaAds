@@ -490,10 +490,13 @@ function searchCountryName(code: string) {
   }
 }
 
+type WebResearchTool = "web_search" | "visit_website";
+
 export async function completeWebResearch(
   system: string,
   user: string,
   country = "TR",
+  tools: WebResearchTool[] = ["web_search", "visit_website"],
 ) {
   const resolved = await resolveAiConfig();
 
@@ -510,6 +513,7 @@ export async function completeWebResearch(
   }
 
   const models = ["groq/compound", "groq/compound-mini"] as const;
+  const enabledTools = tools.length > 0 ? tools : ["web_search", "visit_website"];
 
   for (const [index, model] of models.entries()) {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -517,6 +521,7 @@ export async function completeWebResearch(
       headers: {
         Authorization: `Bearer ${resolved.apiKey}`,
         "Content-Type": "application/json",
+        "Groq-Model-Version": "latest",
       },
       body: JSON.stringify({
         model,
@@ -530,7 +535,7 @@ export async function completeWebResearch(
         },
         compound_custom: {
           tools: {
-            enabled_tools: ["web_search", "visit_website"],
+            enabled_tools: enabledTools,
           },
         },
       }),

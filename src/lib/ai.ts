@@ -3,7 +3,8 @@ import { decrypt, encrypt, maskSecret } from "@/lib/crypto";
 import {
   DEFAULT_GEMINI_MODEL,
   DEFAULT_GROQ_MODEL,
-  FALLBACK_GROQ_MODEL,
+  GROQ_MODEL_CHAIN,
+  resolveGroqModel,
   type AiProvider,
   type AiStatus,
 } from "@/lib/ai-types";
@@ -86,7 +87,7 @@ function defaultModel(provider: AiProvider) {
 
   switch (provider) {
     case "GROQ":
-      return DEFAULT_GROQ_MODEL;
+      return resolveGroqModel(DEFAULT_GROQ_MODEL);
     case "GEMINI":
       return DEFAULT_GEMINI_MODEL;
     default: {
@@ -126,9 +127,11 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig | null> {
     }
 
     if (apiKey) {
+      const model = stored.model || defaultModel(provider);
       return {
         provider,
-        model: stored.model || defaultModel(provider),
+        model:
+          provider === "GROQ" ? resolveGroqModel(model) : model,
         apiKey,
         source: stored.apiKey ? "database" : "env",
       };
@@ -149,7 +152,10 @@ export async function resolveAiConfig(): Promise<ResolvedAiConfig | null> {
 
   return {
     provider,
-    model: defaultModel(provider),
+    model:
+      provider === "GROQ"
+        ? resolveGroqModel(defaultModel(provider))
+        : defaultModel(provider),
     apiKey,
     source: "env",
   };
@@ -217,6 +223,57 @@ export async function saveAiSettings(input: {
   return prisma.aiSettings.create({ data });
 }
 
+function groqErrorMessage(payload: unknown, status: number) {
+  if (!payload || typeof payload !== "object") {
+    return `Groq isteği başarısız (${status}).`;
+  }
+
+  const error = (payload as { error?: { message?: string } | string }).error;
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  if (error && typeof error === "object" && error.message) {
+    return error.message;
+  }
+
+  return `Groq isteği başarısız (${status}).`;
+}
+
+function groqMessageText(payload: {
+  choices?: Array<{
+    message?: {
+      content?: string | Array<{ text?: string }>;
+      reasoning?: string;
+    };
+  }>;
+}) {
+  const message = payload.choices?.[0]?.message;
+  const content = message?.content;
+
+  if (typeof content === "string" && content.trim()) {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    const joined = content
+      .map((part) => part.text ?? "")
+      .join("")
+      .trim();
+
+    if (joined) {
+      return joined;
+    }
+  }
+
+  if (message?.reasoning?.trim()) {
+    return message.reasoning;
+  }
+
+  return "";
+}
+
 function extractJsonObject(text: string) {
   const trimmed = text.trim();
   const start = trimmed.indexOf("{");
@@ -233,7 +290,8 @@ async function completeGroq(
   config: ResolvedAiConfig,
   system: string,
   user: string,
-  model = config.model,
+  model = resolveGroqModel(config.model),
+  tried: string[] = [],
 ) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -254,21 +312,31 @@ async function completeGroq(
   });
 
   const payload = (await response.json().catch(() => null)) as {
-    error?: { message?: string; code?: string };
-    choices?: Array<{ message?: { content?: string } }>;
+    error?: { message?: string; code?: string } | string;
+    choices?: Array<{
+      message?: {
+        content?: string | Array<{ text?: string }>;
+        reasoning?: string;
+      };
+    }>;
   } | null;
 
-  if (response.status === 429 && model !== FALLBACK_GROQ_MODEL) {
-    return completeGroq(config, system, user, FALLBACK_GROQ_MODEL);
+  const nextTried = [...tried, model];
+  const shouldRetry =
+    response.status === 429 ||
+    response.status === 400 ||
+    response.status === 404;
+  const nextModel = GROQ_MODEL_CHAIN.find((item) => !nextTried.includes(item));
+
+  if (!response.ok && shouldRetry && nextModel) {
+    return completeGroq(config, system, user, nextModel, nextTried);
   }
 
   if (!response.ok) {
-    throw new Error(
-      payload?.error?.message ?? `Groq isteği başarısız (${response.status}).`,
-    );
+    throw new Error(groqErrorMessage(payload, response.status));
   }
 
-  const text = payload?.choices?.[0]?.message?.content;
+  const text = groqMessageText(payload ?? {});
 
   if (!text) {
     throw new Error("Groq boş yanıt döndü.");
@@ -349,15 +417,47 @@ export async function completeJson(
   };
 }
 
+async function assertGroqKey(apiKey: string) {
+  const response = await fetch("https://api.groq.com/openai/v1/models", {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    throw new Error("Groq anahtarı geçersiz veya yetkisiz.");
+  }
+
+  if (!response.ok) {
+    throw new Error(groqErrorMessage(await response.json().catch(() => null), response.status));
+  }
+}
+
 export async function testAiConnection() {
   const started = Date.now();
+  const config = await resolveAiConfig();
+
+  if (!config) {
+    throw new Error("Yapay zeka anahtarı tanımlı değil.");
+  }
+
+  if (config.provider === "GROQ") {
+    await assertGroqKey(config.apiKey);
+  }
+
   const result = await completeJson(
     "Sadece geçerli JSON döndür.",
     'Şu JSON\'u birebir üret: {"ok":true}',
+    config,
   );
 
+  if (result.data.ok !== true) {
+    throw new Error("Anahtar çalıştı ama model beklenen JSON'u üretmedi.");
+  }
+
   return {
-    ok: result.data.ok === true,
+    ok: true,
     provider: result.provider,
     model: result.model,
     latencyMs: Date.now() - started,

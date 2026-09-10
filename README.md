@@ -70,7 +70,7 @@ Veri `GET /api/dashboard` üzerinden gelir; hesaplar karışık para birimindeys
 
 ### Yapay zeka (ücretsiz)
 
-Bütçe olmadığı için varsayılan sağlayıcı [Groq](https://console.groq.com/keys) ve model `llama-3.3-70b-versatile`. Kart istemez, günde ~1000 istek yeter. Kota dolarsa `llama-3.1-8b-instant` denenir.
+Bütçe olmadığı için varsayılan sağlayıcı [Groq](https://console.groq.com/keys) ve model `openai/gpt-oss-120b`. Kart istemez. Eski Llama modelleri Ağustos 2026’da kapatıldığı için kota veya hata olursa `qwen/qwen3.6-27b` ve `openai/gpt-oss-20b` denenir.
 
 Google Gemini de seçilebilir; 2026 ücretsiz kotası Flash modellerinde çok daha dardır (~20 istek/gün), bu yüzden önerilmez.
 

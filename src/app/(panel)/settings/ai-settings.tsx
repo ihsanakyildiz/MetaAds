@@ -8,6 +8,7 @@ import {
   aiProviderLabel,
   DEFAULT_GEMINI_MODEL,
   DEFAULT_GROQ_MODEL,
+  FALLBACK_GROQ_MODEL,
   type AiProvider,
   type AiStatus,
 } from "@/lib/ai-types";
@@ -100,8 +101,11 @@ export function AiSettings({ initial }: AiSettingsProps) {
 
     setTesting(false);
 
-    if (!response.ok || !payload || payload.error) {
-      setFormError(payload?.error ?? "Bağlantı testi başarısız.");
+    if (!response.ok || !payload || payload.error || payload.ok === false) {
+      setFormError(
+        payload?.error ??
+          `Bağlantı testi başarısız (${response.status}).`,
+      );
       return;
     }
 
@@ -177,8 +181,9 @@ export function AiSettings({ initial }: AiSettingsProps) {
             className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
           />
           <span className="mt-1.5 block text-xs text-slate-500">
-            Önerilen Groq modeli {DEFAULT_GROQ_MODEL}. Kota dolarsa sistem{" "}
-            {provider === "GROQ" ? "daha hafif modele" : "aynı anahtara"} düşer.
+            Önerilen Groq modeli {DEFAULT_GROQ_MODEL}. Eski Llama adları
+            otomatik bu modele çevrilir; kota dolarsa {FALLBACK_GROQ_MODEL}{" "}
+            denenir.
           </span>
         </label>
 

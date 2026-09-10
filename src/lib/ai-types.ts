@@ -38,9 +38,26 @@ export type AiSettingsView = AiStatus & {
   canManage: boolean;
 };
 
-export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
-export const FALLBACK_GROQ_MODEL = "llama-3.1-8b-instant";
+export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
+export const FALLBACK_GROQ_MODEL = "openai/gpt-oss-20b";
+export const GROQ_MODEL_CHAIN = [
+  DEFAULT_GROQ_MODEL,
+  "qwen/qwen3.6-27b",
+  FALLBACK_GROQ_MODEL,
+] as const;
 export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash-lite";
+
+const DEPRECATED_GROQ_MODELS: Record<string, string> = {
+  "llama-3.3-70b-versatile": DEFAULT_GROQ_MODEL,
+  "llama-3.1-8b-instant": FALLBACK_GROQ_MODEL,
+  "llama-3.1-70b-versatile": DEFAULT_GROQ_MODEL,
+  "llama3-70b-8192": DEFAULT_GROQ_MODEL,
+  "llama3-8b-8192": FALLBACK_GROQ_MODEL,
+};
+
+export function resolveGroqModel(model: string) {
+  return DEPRECATED_GROQ_MODELS[model] ?? model;
+}
 
 export function aiProviderLabel(provider: AiProvider) {
   switch (provider) {

@@ -50,6 +50,7 @@ export type CompetitorWatchView = {
   name: string;
   query: string;
   website: string | null;
+  searchTemplate: string | null;
   pageId: string | null;
   country: string;
   notes: string | null;

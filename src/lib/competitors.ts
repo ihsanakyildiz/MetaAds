@@ -170,6 +170,7 @@ function toView(
     name: string;
     query: string;
     website: string | null;
+    searchTemplate: string | null;
     pageId: string | null;
     country: string;
     notes: string | null;
@@ -195,6 +196,7 @@ function toView(
     name: watch.name,
     query: watch.query,
     website: watch.website,
+    searchTemplate: watch.searchTemplate,
     pageId: watch.pageId,
     country: watch.country,
     notes: watch.notes,
@@ -223,6 +225,7 @@ export async function createCompetitorWatch(input: {
   name: string;
   query: string;
   website?: string;
+  searchTemplate?: string;
   pageId?: string;
   country?: string;
   notes?: string;
@@ -234,6 +237,7 @@ export async function createCompetitorWatch(input: {
       name: input.name.trim(),
       query: (input.query || input.name).trim(),
       website: input.website?.trim() || null,
+      searchTemplate: input.searchTemplate?.trim() || null,
       pageId: input.pageId?.trim() || null,
       country: (input.country || "TR").trim().toUpperCase(),
       notes: input.notes?.trim() || null,
@@ -243,6 +247,30 @@ export async function createCompetitorWatch(input: {
   });
 
   return toView({ ...row, reports: [] });
+}
+
+export async function updateCompetitorWatch(
+  id: string,
+  input: {
+    website?: string;
+    searchTemplate?: string;
+  },
+) {
+  const row = await prisma.competitorWatch.update({
+    where: { id },
+    data: {
+      website: input.website?.trim() || null,
+      searchTemplate: input.searchTemplate?.trim() || null,
+    },
+    include: {
+      reports: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  return toView(row);
 }
 
 export async function deleteCompetitorWatch(id: string) {
@@ -269,7 +297,7 @@ export async function listOwnProductHints() {
 
 const RESEARCH_PROMPT = `Sen e-ticaret pazar analistisin. Türkçe yaz.
 siteEvidence.prices dizisi, verdiğimiz rakip sitesinin KENDİ arama motorundan AZ ÖNCE çekilmiş doğrulanmış fiyatlardır.
-siteEvidence.search.template o sitenin tespit edilen arama adresidir (ör. /Arama?1&kelime=).
+siteEvidence.search.template o sitenin kullanılan arama adresidir (elle girilmiş veya tespit edilmiş, ör. /Arama?1&kelime=).
 O satıcı / o URL için başka fiyat UYDURMA. siteEvidence.prices varsa bunları prices listesinin en üstüne koy, verified=true yaz.
 siteEvidence.prices boşsa o site için price=null ve note="sitede bu ürüne ait net fiyat bulunamadı" yaz; ezber veya eski arama sonucu kullanma.
 Diğer pazaryeri fiyatları yalnızca kaynak URL ile birlikte ve gerçekten görüldüyse eklenebilir.
@@ -367,6 +395,7 @@ export async function analyzeCompetitorWatch(id: string) {
     listOwnProductHints(),
     collectSitePrices({
       website: watch.website,
+      searchTemplate: watch.searchTemplate,
       query: watch.query || watch.name,
       sellerName: watch.name,
     }),
@@ -381,6 +410,7 @@ export async function analyzeCompetitorWatch(id: string) {
         name: watch.name,
         query: watch.query,
         website: watch.website,
+        searchTemplate: watch.searchTemplate,
         pageId: watch.pageId,
         country: watch.country,
         notes: watch.notes,

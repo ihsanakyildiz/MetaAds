@@ -25,6 +25,9 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
   const [name, setName] = useState("");
   const [query, setQuery] = useState("");
   const [website, setWebsite] = useState("");
+  const [searchTemplate, setSearchTemplate] = useState("");
+  const [editWebsite, setEditWebsite] = useState("");
+  const [editSearchTemplate, setEditSearchTemplate] = useState("");
   const [pageId, setPageId] = useState("");
   const [country, setCountry] = useState("TR");
   const [notes, setNotes] = useState("");
@@ -60,6 +63,11 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
     void load();
   }, []);
 
+  useEffect(() => {
+    setEditWebsite(selected?.website ?? "");
+    setEditSearchTemplate(selected?.searchTemplate ?? "");
+  }, [selected?.id, selected?.website, selected?.searchTemplate]);
+
   async function createWatch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -74,6 +82,7 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
         name,
         query: query || name,
         website,
+        searchTemplate,
         pageId,
         country,
         notes,
@@ -92,10 +101,42 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
     setName("");
     setQuery("");
     setWebsite("");
+    setSearchTemplate("");
     setPageId("");
     setNotes("");
     setItems((current) => [payload, ...current]);
     setSelectedId(payload.id);
+  }
+
+  async function saveSearchSettings() {
+    if (!selected) {
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    const response = await fetch(`/api/competitors/${selected.id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        website: editWebsite,
+        searchTemplate: editSearchTemplate,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (CompetitorWatchView & { error?: string })
+      | null;
+    setSaving(false);
+
+    if (!response.ok || !payload || payload.error) {
+      setError(payload?.error ?? "Arama adresi kaydedilemedi.");
+      return;
+    }
+
+    setItems((current) =>
+      current.map((item) => (item.id === payload.id ? payload : item)),
+    );
   }
 
   async function removeWatch(id: string) {
@@ -151,13 +192,15 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
           Rakip fiyatı ve Meta reklamı — kamuya açık kaynaklardan
         </h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Kaynak sitede önce arama formu ve parametresi (ör.{" "}
-          <code className="rounded bg-white/70 px-1">/Arama?1&kelime=</code>)
-          tespit edilir, fiyat o sonuç sayfasından okunur. Groq Compound diğer
-          pazaryerlerine bakar. Facebook / Instagram reklamları resmi Meta
+          Sitede bir arama yapıp adres çubuğundaki linki “Site arama adresi”
+          alanına yapıştırın (ör.{" "}
+          <code className="rounded bg-white/70 px-1">
+            https://www.pozitifo.com.tr/Arama?1&kelime=
+          </code>
+          ). Sistem arama ifadesini o parametreye yazar. Otomatik tespit
+          başarısız olsa da sizin girdiğiniz adres kullanılır. Groq Compound
+          diğer pazaryerlerine bakar. Facebook / Instagram reklamları resmi Meta
           Reklam Kütüphanesi API’si ve Ad Library web taramasıyla bakılır.
-          Ticari reklam arşivi AB/İngiltere teslimatında daha doludur; TR’de
-          sonuç sınırlı olabilir. Gizli hesap veya kapalı stok fiyatı çekilmez.
         </p>
       </section>
 
@@ -214,6 +257,22 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                     placeholder="https://"
                     className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
                   />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-medium">
+                    Site arama adresi
+                  </span>
+                  <input
+                    value={searchTemplate}
+                    onChange={(event) => setSearchTemplate(event.target.value)}
+                    placeholder="https://www.ornek.com/Arama?1&kelime="
+                    className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
+                  />
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">
+                    Sitede arama yapıp adres çubuğundaki linki yapıştırın. Arama
+                    kelimesini silmeniz yeterli; sistem “Arama ifadesi”ni o
+                    parametreye ekler.
+                  </span>
                 </label>
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-medium">
@@ -350,6 +409,47 @@ export function CompetitorsStudio({ canManage }: { canManage: boolean }) {
                       : "Pazar taraması başlat"}
                 </button>
               </div>
+
+              {canManage ? (
+                <div className="mt-5 grid gap-3 rounded-xl border border-dashed border-line p-4 sm:grid-cols-[1fr_1fr_auto]">
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">Site</span>
+                    <input
+                      value={editWebsite}
+                      onChange={(event) => setEditWebsite(event.target.value)}
+                      placeholder="https://"
+                      className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="mb-1.5 block font-medium">
+                      Site arama adresi
+                    </span>
+                    <input
+                      value={editSearchTemplate}
+                      onChange={(event) =>
+                        setEditSearchTemplate(event.target.value)
+                      }
+                      placeholder="https://www.ornek.com/Arama?1&kelime="
+                      className="w-full rounded-xl border border-line px-3 py-2.5 outline-none ring-accent/30 focus:ring-4"
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => void saveSearchSettings()}
+                      className="w-full rounded-xl border border-line px-4 py-2.5 text-sm font-medium hover:border-accent/40 disabled:opacity-60"
+                    >
+                      {saving ? "Kaydediliyor..." : "Adresi kaydet"}
+                    </button>
+                  </div>
+                </div>
+              ) : selected.searchTemplate ? (
+                <p className="mt-3 text-xs text-slate-500">
+                  Arama adresi: {selected.searchTemplate}
+                </p>
+              ) : null}
 
               {report ? (
                 <div className="mt-6 space-y-5">

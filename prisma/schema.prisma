@@ -430,9 +430,10 @@ model CompetitorWatch {
   id          String         @id @default(cuid())
   kind        CompetitorKind
   name        String
-  query       String
-  website     String?
-  pageId      String?
+  query          String
+  website        String?
+  searchTemplate String?
+  pageId         String?
   country     String         @default("TR")
   notes       String?        @db.Text
   enabled     Boolean        @default(true)

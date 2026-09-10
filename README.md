@@ -111,7 +111,7 @@ Yönetici henüz yayında olmayan görsel/video yükleyebilir (`public/uploads/c
 
 ### Rakip analizi (`/competitors`)
 
-Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. Groq Compound kamuya açık sitelerde güncel fiyat arar; Meta bağlıysa resmi [Reklam Kütüphanesi](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) (`ads_archive`) Facebook / Instagram reklamlarını tarar. Ticari reklam arşivi AB/İngiltere teslimatında daha doludur. Gizli stok veya kapalı hesap fiyatı çekilmez.
+Yönetici ve analist, rakip firma veya sattığınız ürünü takibe alır. Kaynak sitenin arama adresini (ör. `/Arama?1&kelime=`) elle girebilirsiniz; sistem arama ifadesini o parametreye yazar. Groq Compound kamuya açık sitelerde güncel fiyat arar; Meta bağlıysa resmi [Reklam Kütüphanesi](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) (`ads_archive`) Facebook / Instagram reklamlarını tarar. Ticari reklam arşivi AB/İngiltere teslimatında daha doludur. Gizli stok veya kapalı hesap fiyatı çekilmez.
 
 ### Kullanıcılar (`/users`)
 

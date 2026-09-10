@@ -36,6 +36,7 @@ const SEARCH_PARAM_NAMES = [
   "searchterm",
   "search_query",
   "aranacak",
+  "aranan",
 ];
 
 const CONTROL_INPUT_NAMES = /^(txtbx|btn|ddl|btnkelime|hdn|__)/i;
@@ -195,6 +196,77 @@ function buildSearchUrl(base: URL, detected: DetectedSearch, query: string) {
   const encoded = encodeSearchValue(query);
   const extra = detected.extraQuery ? `${detected.extraQuery}&` : "";
   return `${base.origin}${detected.path}?${extra}${detected.queryParam}=${encoded}`;
+}
+
+function formatExtraParams(params: Array<[string, string]>, skip: string) {
+  return params
+    .filter(([key]) => key !== skip)
+    .map(([key, value]) => (value ? `${key}=${value}` : key))
+    .join("&");
+}
+
+function chooseSearchParam(url: URL) {
+  const params = [...url.searchParams.entries()];
+  const known = params.find(([key]) => pickSearchParam(key));
+  if (known) {
+    return known[0];
+  }
+
+  const named = [...params]
+    .reverse()
+    .find(([key]) => key && !/^\d+$/.test(key) && !CONTROL_INPUT_NAMES.test(key));
+  return named?.[0] ?? "";
+}
+
+function resolveTemplateUrl(template: string, website?: string | null) {
+  const cleaned = template
+    .trim()
+    .replace(/\{(?:q|query|kelime|search|aranan)\}/gi, "");
+  const site = website ? normalizeWebsite(website) : null;
+
+  if (/^https?:\/\//i.test(cleaned)) {
+    return normalizeWebsite(cleaned);
+  }
+
+  if (!site) {
+    return null;
+  }
+
+  const path = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
+  return normalizeWebsite(`${site.origin}${path}`);
+}
+
+export function parseManualSearchTemplate(
+  template?: string | null,
+  website?: string | null,
+): { base: URL; search: DetectedSearch } | null {
+  const raw = template?.trim();
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = resolveTemplateUrl(raw, website);
+  if (!parsed) {
+    return null;
+  }
+
+  const queryParam = chooseSearchParam(parsed);
+  if (!queryParam) {
+    return null;
+  }
+
+  const search = asDetectedSearch({
+    path: parsed.pathname,
+    queryParam,
+    extraQuery: formatExtraParams([...parsed.searchParams.entries()], queryParam),
+    source: "elle girilen arama adresi",
+  });
+
+  if (!search) {
+    return null;
+  }
+
+  return { base: parsed, search };
 }
 
 function pickSearchParam(name: string) {
@@ -671,10 +743,12 @@ function collectPagePrices(html: string, pageUrl: string, title: string) {
 
 export async function collectSitePrices(input: {
   website?: string | null;
+  searchTemplate?: string | null;
   query: string;
   sellerName: string;
 }): Promise<SiteEvidence> {
-  const base = input.website ? normalizeWebsite(input.website) : null;
+  const manual = parseManualSearchTemplate(input.searchTemplate, input.website);
+  const base = manual?.base ?? (input.website ? normalizeWebsite(input.website) : null);
 
   if (!base) {
     return {
@@ -686,12 +760,15 @@ export async function collectSitePrices(input: {
   }
 
   const tokens = skuTokens(queryTokens(input.query));
-  const home = await fetchHtml(base.toString());
-  const search = home?.html ? detectSiteSearch(home.html, base.toString()) : null;
+  const home = manual ? null : await fetchHtml(base.origin + "/");
+  const detected = home?.html
+    ? detectSiteSearch(home.html, base.toString())
+    : null;
+  const search = manual?.search ?? detected;
   const searchUrl = search ? buildSearchUrl(base, search, input.query) : null;
-  const queue = [
-    ...(searchUrl ? [searchUrl] : fallbackSearchUrls(base, input.query)),
-  ];
+  const queue = searchUrl
+    ? [searchUrl]
+    : fallbackSearchUrls(base, input.query);
   const seen = new Set<string>();
   const pages: SiteEvidence["pages"] = [];
   const rawPrices: PagePrice[] = [];
@@ -733,8 +810,8 @@ export async function collectSitePrices(input: {
   }));
 
   const searchNote = search
-    ? ` Sitenin arama adresi tespit edildi: ${search.template} (${search.source}).`
-    : " Sitede arama formu bulunamadı; genel arama adresleri denendi.";
+    ? ` Kullanılan arama adresi: ${search.template} (${search.source}).`
+    : " Sitede arama formu bulunamadı ve elle arama adresi girilmedi; genel arama adresleri denendi.";
 
   return {
     pages,

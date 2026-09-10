@@ -244,6 +244,22 @@ Tohum kullanıcılar (`prisma/seed.ts`):
 | `npm run db:studio` | Prisma Studio |
 | `npm run lint` | ESLint |
 
+## Canlıda PM2 (yalnızca 3003)
+
+Bu dosya sadece `metaads` sürecini tanımlar; 3000 / 3001 / 3002 üzerindeki diğer uygulamalara dokunmaz.
+
+```bash
+cd /home/ihsanproje/web/metaads.ihsanakyildiz.com.tr/apps/MetaAds
+npm run build
+pm2 delete metaads
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+`pm2 startup` bir hata değildir. systemd kaydı için ekrandaki `sudo env PATH=...` satırını **bir kez** çalıştırın. Bu komut diğer projelerin portunu değiştirmez; yeniden başlatınca `pm2 save` ile kayıtlı tüm süreçler (alchatol, sastimim, metaads vb.) geri gelir.
+
+Yapmayın: `pm2 delete all`, `pm2 kill`, `pm2 restart all` (diğer siteleri de etkiler).
+
 ## Dizin yapısı
 
 ```text

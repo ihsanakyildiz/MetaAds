@@ -265,7 +265,7 @@ Tohum kullanıcılar (`prisma/seed.ts`):
 | Komut | İş |
 | --- | --- |
 | `npm run dev` | Geliştirme sunucusu (`:3003`) |
-| `npm run build` / `npm start` | Üretim derlemesi ve çalıştırma (`:3003`) |
+| `npm run build` / `npm start` | Üretim derlemesi (webpack) ve çalıştırma (`:3003`) |
 | `npm run db:push` | Şemayı MySQL’e uygula |
 | `npm run db:seed` | Örnek kullanıcıları yaz |
 | `npm run db:studio` | Prisma Studio |
@@ -274,6 +274,9 @@ Tohum kullanıcılar (`prisma/seed.ts`):
 ## Canlıda PM2 (yalnızca 3003)
 
 Bu dosya sadece `metaads` sürecini tanımlar; 3000 / 3001 / 3002 üzerindeki diğer uygulamalara dokunmaz.
+
+```bash
+`next build` varsayılan Turbopack, PostCSS için yerel bir porta bağlanır. Paylaşımlı / kısıtlı sunucularda (ör. GoDaddy) bu `Permission denied (os error 13)` verir. `npm run build` bu yüzden `next build --webpack` kullanır; `next start` ve PM2 aynı kalır.
 
 ```bash
 cd /home/ihsanproje/web/metaads.ihsanakyildiz.com.tr/apps/MetaAds

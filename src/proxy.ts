@@ -1,13 +1,25 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySession } from "@/lib/session-token";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/meta/oauth/callback"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/health",
+  "/api/meta/oauth/callback",
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname === path);
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySession(token) : null;
+
+  if (!session && pathname === "/") {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.search = "";
+    return NextResponse.rewrite(loginUrl);
+  }
 
   if (!session && !isPublic) {
     const loginUrl = request.nextUrl.clone();

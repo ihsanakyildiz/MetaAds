@@ -37,6 +37,7 @@ async function main() {
       where: { email: user.email },
       update: {
         name: user.name,
+        password,
         role: user.role,
         isActive: true,
       },

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 import {
   OAUTH_STATE_COOKIE,
   SESSION_COOKIE,
@@ -38,15 +39,28 @@ function isSecureRequest(request?: Request) {
   return new URL(request.url).protocol === "https:";
 }
 
-export async function setSessionCookie(token: string, request?: Request) {
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
+function sessionCookieOptions(request?: Request) {
+  return {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "lax" as const,
     secure: isSecureRequest(request),
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
-  });
+  };
+}
+
+export function applySessionCookie(
+  response: NextResponse,
+  token: string,
+  request?: Request,
+) {
+  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(request));
+  return response;
+}
+
+export async function setSessionCookie(token: string, request?: Request) {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, token, sessionCookieOptions(request));
 }
 
 export async function clearSessionCookie() {

@@ -9,13 +9,15 @@
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.1",
+    "prisma": "^6.19.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.12",
     "lucide-react": "^1.43.0",
@@ -32,7 +34,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
-    "prisma": "^6.19.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
     "typescript": "^5"

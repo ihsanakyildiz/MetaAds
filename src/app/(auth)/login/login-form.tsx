@@ -16,28 +16,36 @@ export function LoginForm() {
     setLoading(true);
     setError("");
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "1",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "1",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
-    if (!response.ok) {
-      setError(data?.error ?? "Giriş yapılamadı.");
+      if (!response.ok) {
+        setError(
+          data?.error ??
+            `Giriş yapılamadı (HTTP ${response.status}). Veritabanı bağlantısını kontrol edin.`,
+        );
+        return;
+      }
+
+      router.push(searchParams.get("next") || "/");
+      router.refresh();
+    } catch {
+      setError("Sunucuya ulaşılamadı. Sayfayı yenileyip tekrar deneyin.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.push(searchParams.get("next") || "/");
-    router.refresh();
   }
 
   return (

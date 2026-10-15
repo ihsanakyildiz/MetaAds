@@ -265,7 +265,7 @@ Tohum kullanıcılar (`prisma/seed.ts`):
 | Komut | İş |
 | --- | --- |
 | `npm run dev` | Geliştirme sunucusu (`:3003`) |
-| `npm run build` / `npm start` | Üretim derlemesi (webpack) ve çalıştırma (`:3003`) |
+| `npm run build` / `npm start` | Üretim derlemesi (webpack) ve çalıştırma (`PORT` veya `3003`) |
 | `npm run db:push` | Şemayı MySQL’e uygula |
 | `npm run db:seed` | Örnek kullanıcıları yaz |
 | `npm run db:studio` | Prisma Studio |

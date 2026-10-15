@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3003",
     "build": "next build --webpack",
-    "start": "next start -p 3003",
+    "start": "node scripts/start.cjs",
     "lint": "eslint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",

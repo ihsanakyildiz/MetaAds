@@ -24,7 +24,7 @@ export function dbErrorMessage(error: unknown) {
     message.includes("ECONNREFUSED") ||
     message.includes("ENOTFOUND")
   ) {
-    return "Veritabanına bağlanılamadı. DATABASE_URL barındırılan MySQL adresi olmalı; localhost veya yalnızca yüklenen SQL dosyası yeterli değildir.";
+    return "Veritabanına bağlanılamadı. AiroApp barındırılan MySQL (DB_HOST) veya mevcut sunucudaki DATABASE_URL değerini kontrol edin.";
   }
 
   if (
@@ -48,7 +48,7 @@ export function dbErrorMessage(error: unknown) {
   }
 
   if (message.includes("DATABASE_URL")) {
-    return "DATABASE_URL okunamadı. AiroApp gizli öğelerinde veya .env dosyasında MySQL bağlantı dizesini tanımlayın.";
+    return "Veritabanı bağlantısı okunamadı. AiroApp barındırılan MySQL’i ekleyin (DB_HOST otomatik gelir) veya diğer sunucularda DATABASE_URL tanımlayın.";
   }
 
   if (message.includes("SESSION_SECRET")) {
